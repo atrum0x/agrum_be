@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: agrum
+
+  datasource:
+      url: jdbc:postgresql://localhost:5432/agrum_dev
+      username: postgres
+      password:
+      driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      # Use 'update' for development so it builds the tables for you.
+      # Switch to 'validate' in production using Flyway or Liquibase.
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  # Security configuration (optional at this stage, but good for debugging)
+  security:
+    user:
+      name: admin
+      password: temp_password
