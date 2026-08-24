@@ -18,8 +18,11 @@ spring:
       hibernate:
         format_sql: true
 
-  # Security configuration (optional at this stage, but good for debugging)
-  security:
-    user:
-      name: admin
-      password: temp_password
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+jwt:
+  secret: "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970" # Must be at least 256 bits for HMAC-SHA
+  expiration: 86400000 # 24 hours in milliseconds
