@@ -125,11 +125,23 @@ public class AuthController {
 
         // Security Best Practice: Rotate the refresh token (Issue a new one, delete the old one)
         String newRefreshToken = UUID.randomUUID().toString();
-        redisTemplate.opsForValue().set(
-                "refresh_tokens:" + username,
+
+        RefreshToken dbToken = new RefreshToken(
+                username,
                 newRefreshToken,
-                Duration.ofDays(60)
+                Instant.now().plus(Duration.ofDays(60))
         );
+        refreshTokenRepository.save(dbToken);
+
+        try {
+            redisTemplate.opsForValue().set(
+                    "refresh_tokens:" + username,
+                    newRefreshToken,
+                    Duration.ofDays(60)
+            );
+        } catch (Exception e) {
+            System.err.println("Redis is down during token rotation! Token updated in DB only.");
+        }
 
         return ResponseEntity.ok(new TokenResponse(newAccessToken, newRefreshToken));
     }
@@ -141,15 +153,23 @@ public class AuthController {
     public ResponseEntity<?> logout(@RequestBody LogoutRequest request) {
         String username = request.getUsername();
 
-        // 1. Delete the refresh token so the mobile app can no longer renew its session
-        redisTemplate.delete("refresh_tokens:" + username);
+        // 1. PRIMARY: Delete from PostgreSQL so the token is permanently revoked
+        refreshTokenRepository.deleteById(username);
 
-        // 2. Force clear the user's permission cache so if their permissions
-        // changed while logged out, the next login fetches fresh data.
-        redisTemplate.delete("userPermissions::" + username + "_GET");
-        redisTemplate.delete("userPermissions::" + username + "_POST");
-        redisTemplate.delete("userPermissions::" + username + "_PUT");
-        redisTemplate.delete("userPermissions::" + username + "_DELETE");
+        // 2. CACHE: Try to clear Redis caches
+        try {
+            // Delete the refresh token so the mobile app can no longer renew its session
+            redisTemplate.delete("refresh_tokens:" + username);
+
+            // Force clear the user's permission cache so if their permissions
+            // changed while logged out, the next login fetches fresh data.
+            redisTemplate.delete("userPermissions::" + username + "_GET");
+            redisTemplate.delete("userPermissions::" + username + "_POST");
+            redisTemplate.delete("userPermissions::" + username + "_PUT");
+            redisTemplate.delete("userPermissions::" + username + "_DELETE");
+        } catch (Exception e) {
+            System.err.println("Redis is down during logout! User session completely revoked from DB.");
+        }
 
         return ResponseEntity.ok("Successfully logged out across all devices.");
     }

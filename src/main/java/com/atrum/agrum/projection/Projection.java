@@ -1,6 +1,7 @@
 package com.atrum.agrum.projection;
 
 import com.atrum.agrum.permission.PermissionSet;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -37,6 +38,7 @@ public class Projection {
     private String description;
 
     @ManyToMany(mappedBy = "projections")
+    @JsonIgnoreProperties("projections")
     private Set<PermissionSet> permissionSets = new HashSet<>();
 
     public Projection(String id, String httpMethod, String urlPath) {

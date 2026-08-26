@@ -38,7 +38,13 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(authz -> authz
                         // Public authentication/system endpoints
-                        .requestMatchers("/api/public/**", "/error").permitAll()
+                        .requestMatchers(
+                                "/api/public/**",
+                                "/api/auth/**",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/error").permitAll()
                         // Route all business endpoints through dynamic manager
                         .anyRequest().access(dynamicPermissionSetManager)
                 ).addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)

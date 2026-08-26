@@ -41,6 +41,7 @@ public class RateLimitingFilter extends OncePerRequestFilter {
         // 2. Fetch the bucket for this key
         Bucket bucket = rateLimitingService.resolveBucket(key, isAuthenticated);
 
+
         // 3. Try to consume 1 token
         if (bucket.tryConsume(1)) {
             // Success: Let the request pass to the controller
