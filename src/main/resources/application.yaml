@@ -3,9 +3,9 @@ spring:
     name: agrum
 
   datasource:
-      url: jdbc:postgresql://localhost:5432/agrum_dev
-      username: postgres
-      password:
+      url: ${DB_URL}
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
       driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -20,8 +20,8 @@ spring:
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
         # 1. How long to wait to establish a connection (Fail fast!)
       connect-timeout: 2s
       # 2. How long to wait for a command to finish before throwing an error
@@ -35,5 +35,5 @@ spring:
           min-idle: 0
 
 jwt:
-  secret: "404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970" # Must be at least 256 bits for HMAC-SHA
-  expiration: 86400000 # 24 hours in milliseconds
+  secret: ${JWT_SECRET} # Must be at least 256 bits for HMAC-SHA
+  expiration: ${JWT_EXP}

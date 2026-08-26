@@ -48,4 +48,4 @@ public class AdminPermissionController {
         adminPermissionService.grantPermissionSetToUser(username, permissionSetId);
         return ResponseEntity.ok("Permission Set " + permissionSetId + " assigned to User " + username);
     }
-}   
+}

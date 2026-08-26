@@ -2,6 +2,7 @@ package com.atrum.agrum.security;
 
 import com.atrum.agrum.permission.PermissionSetRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.server.PathContainer;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
@@ -20,6 +21,9 @@ public class DynamicPermissionSetManager implements AuthorizationManager<Request
     private final PermissionSetRepository permissionSetRepository;
     private final PathPatternParser patternParser = new PathPatternParser();
 
+    @Value("${SUPERUSER_USERNAME}")
+    private String superUsername;
+
     public DynamicPermissionSetManager(PermissionSetRepository permissionSetRepository) {
         this.permissionSetRepository = permissionSetRepository;
     }
@@ -36,6 +40,10 @@ public class DynamicPermissionSetManager implements AuthorizationManager<Request
         String requestUrl = request.getRequestURI();
         String httpMethod = request.getMethod();
         String username = auth.getName();
+
+        if (superUsername.equals(username)) {
+            return new AuthorizationDecision(true); // Instant access to any projection/endpoint!
+        }
 
         // 1. Fetch allowed URL patterns for this user and method from DB
         List<String> allowedPatterns = permissionSetRepository.findAllowedPathPatternsByUsernameAndHttpMethod(username, httpMethod);
