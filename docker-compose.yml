@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # 1. PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: agrum_postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 1G  # Capping Postgres so it doesn't hog RAM
+    networks:
+      - agrum-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Redis Cache & Rate Limiter
+  redis:
+    image: redis:7-alpine
+    container_name: agrum_redis
+    volumes:
+      - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M  # Capping Redis safely at 256MB max
+    command: redis-server --maxmemory 200mb --maxmemory-policy allkeys-lru
+    networks:
+      - agrum-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 3. Spring Boot Application
+  app:
+    build: .
+    container_name: agrum_backend
+    ports:
+      - "8080:8080"
+    deploy:
+      resources:
+        limits:
+          memory: 1536M  # Capping Spring Boot JVM container
+    environment:
+      # Notice it connects using the container name 'postgres' instead of localhost!
+      - DB_URL=jdbc:postgresql://postgres:5432/${DB_NAME}
+      - DB_USERNAME=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXP=${JWT_EXP}
+      - SUPERUSER_USERNAME=${SUPERUSER_USERNAME}
+      - SUPERUSER_EMAIL=${SUPERUSER_EMAIL}
+      - SUPERUSER_PASSWORD=${SUPERUSER_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - agrum-net
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  agrum-net:
+    driver: bridge

@@ -3,9 +3,9 @@ spring:
     name: agrum
 
   datasource:
-      url: jdbc:postgresql://localhost:5432/agrum_dev
-      username: postgres
-      password:
+      url: ${DB_URL}
+      username: ${DB_USERNAME}
+      password: ${DB_PASSWORD}
       driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -18,8 +18,22 @@ spring:
       hibernate:
         format_sql: true
 
-  # Security configuration (optional at this stage, but good for debugging)
-  security:
-    user:
-      name: admin
-      password: temp_password
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+        # 1. How long to wait to establish a connection (Fail fast!)
+      connect-timeout: 2s
+      # 2. How long to wait for a command to finish before throwing an error
+      timeout: 2s
+
+      # (Optional) Control the Lettuce client's internal behavior
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+
+jwt:
+  secret: ${JWT_SECRET} # Must be at least 256 bits for HMAC-SHA
+  expiration: ${JWT_EXP}
