@@ -14,6 +14,7 @@ import java.util.UUID;
 @Service
 public class AuthService {
 
+
     private final AppUserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
@@ -32,7 +33,7 @@ public class AuthService {
         this.redisTemplate = redisTemplate;
     }
 
-    public void register(AuthController.RegisterRequest request) {
+    public void register(AuthDto.RegisterRequest request) {
         if (userRepository.existsById(request.getUsername())) {
             throw new IllegalArgumentException("Username is already taken!");
         }
@@ -45,7 +46,7 @@ public class AuthService {
         userRepository.save(user);
     }
 
-    public AuthController.TokenResponse login(AuthController.LoginRequest request) {
+    public AuthDto.TokenResponse login(AuthDto.LoginRequest request) {
         AppUser user = userRepository.findById(request.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -58,12 +59,10 @@ public class AuthService {
 
         saveRefreshToken(user.getUsername(), refreshToken);
 
-        return new AuthController.TokenResponse(accessToken, refreshToken);
+        return new AuthDto.TokenResponse(accessToken, refreshToken);
     }
 
-    public AuthController.TokenResponse refresh(AuthController.RefreshRequest request) {
-        String username = request.getUsername();
-        String providedRefreshToken = request.getRefreshToken();
+    public AuthDto.TokenResponse refresh(String username, String providedRefreshToken) {
         String storedToken = null;
 
         try {
@@ -88,10 +87,10 @@ public class AuthService {
 
         saveRefreshToken(username, newRefreshToken);
 
-        return new AuthController.TokenResponse(newAccessToken, newRefreshToken);
+        return new AuthDto.TokenResponse(newAccessToken, newRefreshToken);
     }
 
-    public void logout(AuthController.LogoutRequest request) {
+    public void logout(AuthDto.LogoutRequest request) {
         String username = request.getUsername();
 
         refreshTokenRepository.deleteById(username);
@@ -125,5 +124,19 @@ public class AuthService {
         } catch (Exception e) {
             System.err.println("Redis is down! Refresh token saved to DB only.");
         }
+    }
+
+    public AuthDto.CurrentUserProfileResponse getCurrentUserProfile(String accessToken) {
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new RuntimeException("No access token provided.");
+        }
+
+        // Extract username using your existing token provider
+        String username = tokenProvider.getUsernameFromJWT(accessToken); // Or whatever method your tokenProvider uses
+
+        AppUser user = userRepository.findById(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return new AuthDto.CurrentUserProfileResponse(user.getUsername(), user.getEmail());
     }
 }

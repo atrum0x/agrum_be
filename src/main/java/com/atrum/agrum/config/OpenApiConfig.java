@@ -15,15 +15,15 @@ public class OpenApiConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Dynamic Authorization Enterprise API")
+                        .title("Agrum Back End")
                         .version("1.0.0")
-                        .description("Backend API featuring dynamic IFS-style permission sets, Redis caching, dual-token auth, and rate limiting."))
+                        .description("Powered By Atrum"))
                 // Add JWT Authorization capability to the Swagger UI
                 .addSecurityItem(new SecurityRequirement().addList("BearerAuth"))
                 .components(new Components()
                         .addSecuritySchemes("BearerAuth",
                                 new SecurityScheme()
-                                        .name("BearerAuth")
+                                        //.name("BearerAuth")
                                         .type(SecurityScheme.Type.HTTP)
                                         .scheme("bearer")
                                         .bearerFormat("JWT")
