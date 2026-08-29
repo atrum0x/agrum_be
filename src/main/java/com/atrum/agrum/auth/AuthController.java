@@ -4,6 +4,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.atrum.agrum.auth.AuthDto.*;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -16,23 +17,23 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody AuthDto.RegisterRequest request) {
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         authService.register(request);
         return ResponseEntity.ok("User registered successfully!");
     }
 
     // Web Login (Cookies only, no tokens in body)
     @PostMapping("/login/web")
-    public ResponseEntity<?> loginWeb(@RequestBody AuthDto.LoginRequest request) {
-        AuthDto.TokenResponse response = authService.login(request);
+    public ResponseEntity<?> loginWeb(@RequestBody LoginRequest request) {
+        TokenResponse response = authService.login(request);
         // Returns the cookies, and just a simple string in the body
         return buildCookieResponse(response.getAccessToken(), response.getRefreshToken(), "Logged in securely from web");
     }
 
     // Mobile Login(Tokens in JSON body, no cookies)
     @PostMapping("/login/mobile")
-    public ResponseEntity<?> loginMobile(@RequestBody AuthDto.LoginRequest request) {
-        AuthDto.TokenResponse response = authService.login(request);
+    public ResponseEntity<TokenResponse> loginMobile(@RequestBody LoginRequest request) {
+        TokenResponse response = authService.login(request);
         // Returns the tokens directly in the JSON payload for Flutter to save
         return ResponseEntity.ok(response);
     }
@@ -40,25 +41,25 @@ public class AuthController {
     // Web Refresh (Expects HttpOnly cookie, returns new HttpOnly cookies)
     @PostMapping("/refresh/web")
     public ResponseEntity<?> refreshWeb(
-            @RequestBody AuthDto.RefreshRequest request,
+            @RequestBody RefreshRequest request,
             @CookieValue(name = "refresh_jwt", required = false) String refreshToken) {
 
         if (refreshToken == null) return ResponseEntity.status(401).body("No refresh token cookie found.");
-        AuthDto.TokenResponse response = authService.refresh(request.getUsername(), refreshToken);
+        TokenResponse response = authService.refresh(request.getUsername(), refreshToken);
         return buildCookieResponse(response.getAccessToken(), response.getRefreshToken(), "Token refreshed");
     }
 
     // Mobile Refresh (Expects token in JSON body, returns tokens in JSON body)
     @PostMapping("/refresh/mobile")
-    public ResponseEntity<?> refreshMobile(@RequestBody AuthDto.RefreshRequest request) {
+    public ResponseEntity<TokenResponse> refreshMobile(@RequestBody RefreshRequest request) {
         // Note: Mobile passes the refresh token inside the JSON body, not as a cookie
-        AuthDto.TokenResponse response = authService.refresh(request.getUsername(), request.getRefreshToken());
+        TokenResponse response = authService.refresh(request.getUsername(), request.getRefreshToken());
         return ResponseEntity.ok(response);
     }
 
     // 1. WEB LOGOUT (Revokes session in DB + Clears Browser Cookies)
     @PostMapping("/logout/web")
-    public ResponseEntity<?> logoutWeb(@RequestBody AuthDto.LogoutRequest request) {
+    public ResponseEntity<?> logoutWeb(@RequestBody LogoutRequest request) {
         authService.logout(request);
 
         // Overwrite the cookies with empty values and a maxAge of 0 to delete them instantly
@@ -73,7 +74,7 @@ public class AuthController {
 
     // 2. MOBILE LOGOUT (Revokes session in DB only)
     @PostMapping("/logout/mobile")
-    public ResponseEntity<?> logoutMobile(@RequestBody AuthDto.LogoutRequest request) {
+    public ResponseEntity<?> logoutMobile(@RequestBody LogoutRequest request) {
         authService.logout(request);
 
         // No cookies sent. The mobile app must delete its own stored tokens.
@@ -81,9 +82,9 @@ public class AuthController {
     }
 
     @GetMapping("/me/web")
-    public ResponseEntity<?> getCurrentUser(
+    public ResponseEntity<CurrentUserProfileResponse> getCurrentUser(
             @CookieValue(name = "access_jwt", required = false) String accessToken) {
-        AuthDto.CurrentUserProfileResponse profile = authService.getCurrentUserProfile(accessToken);
+        CurrentUserProfileResponse profile = authService.getCurrentUserProfile(accessToken);
         return ResponseEntity.ok(profile);
     }
 
