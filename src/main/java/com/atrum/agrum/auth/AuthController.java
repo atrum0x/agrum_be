@@ -17,36 +17,24 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody AuthDto.RegisterRequest request) {
-        try {
-            authService.register(request);
-            return ResponseEntity.ok("User registered successfully!");
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        authService.register(request);
+        return ResponseEntity.ok("User registered successfully!");
     }
 
     // Web Login (Cookies only, no tokens in body)
     @PostMapping("/login/web")
     public ResponseEntity<?> loginWeb(@RequestBody AuthDto.LoginRequest request) {
-        try {
-            AuthDto.TokenResponse response = authService.login(request);
-            // Returns the cookies, and just a simple string in the body
-            return buildCookieResponse(response.getAccessToken(), response.getRefreshToken(), "Logged in securely from web");
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(401).body(e.getMessage());
-        }
+        AuthDto.TokenResponse response = authService.login(request);
+        // Returns the cookies, and just a simple string in the body
+        return buildCookieResponse(response.getAccessToken(), response.getRefreshToken(), "Logged in securely from web");
     }
 
     // Mobile Login(Tokens in JSON body, no cookies)
     @PostMapping("/login/mobile")
     public ResponseEntity<?> loginMobile(@RequestBody AuthDto.LoginRequest request) {
-        try {
-            AuthDto.TokenResponse response = authService.login(request);
-            // Returns the tokens directly in the JSON payload for Flutter to save
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(401).body(e.getMessage());
-        }
+        AuthDto.TokenResponse response = authService.login(request);
+        // Returns the tokens directly in the JSON payload for Flutter to save
+        return ResponseEntity.ok(response);
     }
 
     // Web Refresh (Expects HttpOnly cookie, returns new HttpOnly cookies)
@@ -56,24 +44,16 @@ public class AuthController {
             @CookieValue(name = "refresh_jwt", required = false) String refreshToken) {
 
         if (refreshToken == null) return ResponseEntity.status(401).body("No refresh token cookie found.");
-        try {
-            AuthDto.TokenResponse response = authService.refresh(request.getUsername(), refreshToken);
-            return buildCookieResponse(response.getAccessToken(), response.getRefreshToken(), "Token refreshed");
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(401).body(e.getMessage());
-        }
+        AuthDto.TokenResponse response = authService.refresh(request.getUsername(), refreshToken);
+        return buildCookieResponse(response.getAccessToken(), response.getRefreshToken(), "Token refreshed");
     }
 
     // Mobile Refresh (Expects token in JSON body, returns tokens in JSON body)
     @PostMapping("/refresh/mobile")
     public ResponseEntity<?> refreshMobile(@RequestBody AuthDto.RefreshRequest request) {
-        try {
-            // Note: Mobile passes the refresh token inside the JSON body, not as a cookie
-            AuthDto.TokenResponse response = authService.refresh(request.getUsername(), request.getRefreshToken());
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(401).body(e.getMessage());
-        }
+        // Note: Mobile passes the refresh token inside the JSON body, not as a cookie
+        AuthDto.TokenResponse response = authService.refresh(request.getUsername(), request.getRefreshToken());
+        return ResponseEntity.ok(response);
     }
 
     // 1. WEB LOGOUT (Revokes session in DB + Clears Browser Cookies)
@@ -103,12 +83,8 @@ public class AuthController {
     @GetMapping("/me/web")
     public ResponseEntity<?> getCurrentUser(
             @CookieValue(name = "access_jwt", required = false) String accessToken) {
-        try {
-            AuthDto.CurrentUserProfileResponse profile = authService.getCurrentUserProfile(accessToken);
-            return ResponseEntity.ok(profile);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(401).body(e.getMessage());
-        }
+        AuthDto.CurrentUserProfileResponse profile = authService.getCurrentUserProfile(accessToken);
+        return ResponseEntity.ok(profile);
     }
 
     private ResponseEntity<?> buildCookieResponse(String accessToken, String refreshToken, String message) {
