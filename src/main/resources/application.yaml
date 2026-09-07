@@ -3,9 +3,9 @@ spring:
     name: agrum
 
   datasource:
-      url: ${DB_URL}
-      username: ${DB_USERNAME}
-      password: ${DB_PASSWORD}
+      url: ${DB_URL:jdbc:postgresql://localhost:5432/agrum}
+      username: ${DB_USERNAME:postgres}
+      password: ${DB_PASSWORD:postgres}
       driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -20,8 +20,8 @@ spring:
 
   data:
     redis:
-      host: ${REDIS_HOST}
-      port: ${REDIS_PORT}
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
         # 1. How long to wait to establish a connection (Fail fast!)
       connect-timeout: 2s
       # 2. How long to wait for a command to finish before throwing an error
