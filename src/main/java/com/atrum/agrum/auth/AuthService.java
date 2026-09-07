@@ -1,11 +1,14 @@
 package com.atrum.agrum.auth;
 
+import com.atrum.agrum.exception.InvalidCredentialsException;
+import com.atrum.agrum.exception.ResourceNotFoundException;
 import com.atrum.agrum.security.JwtTokenProvider;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.AppUserRepository;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import com.atrum.agrum.auth.AuthDto.*;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -13,6 +16,7 @@ import java.util.UUID;
 
 @Service
 public class AuthService {
+
 
     private final AppUserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -32,7 +36,7 @@ public class AuthService {
         this.redisTemplate = redisTemplate;
     }
 
-    public void register(AuthController.RegisterRequest request) {
+    public void register(RegisterRequest request) {
         if (userRepository.existsById(request.getUsername())) {
             throw new IllegalArgumentException("Username is already taken!");
         }
@@ -45,12 +49,12 @@ public class AuthService {
         userRepository.save(user);
     }
 
-    public AuthController.TokenResponse login(AuthController.LoginRequest request) {
+    public TokenResponse login(LoginRequest request) {
         AppUser user = userRepository.findById(request.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new RuntimeException("Invalid credentials");
+            throw new InvalidCredentialsException("Invalid credentials");
         }
 
         String accessToken = tokenProvider.generateToken(user.getUsername());
@@ -58,12 +62,10 @@ public class AuthService {
 
         saveRefreshToken(user.getUsername(), refreshToken);
 
-        return new AuthController.TokenResponse(accessToken, refreshToken);
+        return new TokenResponse(accessToken, refreshToken);
     }
 
-    public AuthController.TokenResponse refresh(AuthController.RefreshRequest request) {
-        String username = request.getUsername();
-        String providedRefreshToken = request.getRefreshToken();
+    public TokenResponse refresh(String username, String providedRefreshToken) {
         String storedToken = null;
 
         try {
@@ -80,7 +82,7 @@ public class AuthService {
         }
 
         if (storedToken == null || !storedToken.equals(providedRefreshToken)) {
-            throw new RuntimeException("Refresh token expired, invalid, or revoked. Please log in again.");
+            throw new InvalidCredentialsException("Refresh token expired, invalid, or revoked. Please log in again.");
         }
 
         String newAccessToken = tokenProvider.generateToken(username);
@@ -88,10 +90,10 @@ public class AuthService {
 
         saveRefreshToken(username, newRefreshToken);
 
-        return new AuthController.TokenResponse(newAccessToken, newRefreshToken);
+        return new AuthDto.TokenResponse(newAccessToken, newRefreshToken);
     }
 
-    public void logout(AuthController.LogoutRequest request) {
+    public void logout(LogoutRequest request) {
         String username = request.getUsername();
 
         refreshTokenRepository.deleteById(username);
@@ -125,5 +127,19 @@ public class AuthService {
         } catch (Exception e) {
             System.err.println("Redis is down! Refresh token saved to DB only.");
         }
+    }
+
+    public CurrentUserProfileResponse getCurrentUserProfile(String accessToken) {
+        if (accessToken == null || accessToken.isBlank()) {
+            throw new InvalidCredentialsException("No access token provided.");
+        }
+
+        // Extract username using your existing token provider
+        String username = tokenProvider.getUsernameFromJWT(accessToken); // Or whatever method your tokenProvider uses
+
+        AppUser user = userRepository.findById(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        return new CurrentUserProfileResponse(user.getUsername(), user.getEmail());
     }
 }

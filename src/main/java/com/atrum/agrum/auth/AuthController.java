@@ -1,7 +1,10 @@
 package com.atrum.agrum.auth;
 
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.atrum.agrum.auth.AuthDto.*;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -15,85 +18,96 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
-        try {
-            authService.register(request);
-            return ResponseEntity.ok("User registered successfully!");
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        authService.register(request);
+        return ResponseEntity.ok("User registered successfully!");
     }
 
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        try {
-            TokenResponse response = authService.login(request);
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(401).body(e.getMessage());
-        }
+    // Web Login (Cookies only, no tokens in body)
+    @PostMapping("/login/web")
+    public ResponseEntity<?> loginWeb(@RequestBody LoginRequest request) {
+        TokenResponse response = authService.login(request);
+        // Returns the cookies, and just a simple string in the body
+        return buildCookieResponse(response.getAccessToken(), response.getRefreshToken(), "Logged in securely from web");
     }
 
-    @PostMapping("/refresh")
-    public ResponseEntity<?> refresh(@RequestBody RefreshRequest request) {
-        try {
-            TokenResponse response = authService.refresh(request);
-            return ResponseEntity.ok(response);
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(401).body(e.getMessage());
-        }
+    // Mobile Login(Tokens in JSON body, no cookies)
+    @PostMapping("/login/mobile")
+    public ResponseEntity<TokenResponse> loginMobile(@RequestBody LoginRequest request) {
+        TokenResponse response = authService.login(request);
+        // Returns the tokens directly in the JSON payload for Flutter to save
+        return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<?> logout(@RequestBody LogoutRequest request) {
+    // Web Refresh (Expects HttpOnly cookie, returns new HttpOnly cookies)
+    @PostMapping("/refresh/web")
+    public ResponseEntity<?> refreshWeb(
+            @RequestBody RefreshRequest request,
+            @CookieValue(name = "refresh_jwt", required = false) String refreshToken) {
+
+        if (refreshToken == null) return ResponseEntity.status(401).body("No refresh token cookie found.");
+        TokenResponse response = authService.refresh(request.getUsername(), refreshToken);
+        return buildCookieResponse(response.getAccessToken(), response.getRefreshToken(), "Token refreshed");
+    }
+
+    // Mobile Refresh (Expects token in JSON body, returns tokens in JSON body)
+    @PostMapping("/refresh/mobile")
+    public ResponseEntity<TokenResponse> refreshMobile(@RequestBody RefreshRequest request) {
+        // Note: Mobile passes the refresh token inside the JSON body, not as a cookie
+        TokenResponse response = authService.refresh(request.getUsername(), request.getRefreshToken());
+        return ResponseEntity.ok(response);
+    }
+
+    // 1. WEB LOGOUT (Revokes session in DB + Clears Browser Cookies)
+    @PostMapping("/logout/web")
+    public ResponseEntity<?> logoutWeb(@RequestBody LogoutRequest request) {
         authService.logout(request);
-        return ResponseEntity.ok("Successfully logged out across all devices.");
+
+        // Overwrite the cookies with empty values and a maxAge of 0 to delete them instantly
+        ResponseCookie deleteAccess = ResponseCookie.from("access_jwt", "").maxAge(0).path("/").build();
+        ResponseCookie deleteRefresh = ResponseCookie.from("refresh_jwt", "").maxAge(0).path("/").build();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, deleteAccess.toString())
+                .header(HttpHeaders.SET_COOKIE, deleteRefresh.toString())
+                .body("Successfully logged out from web.");
     }
 
-    // --------------------------------------------------------
-    // DTOs (Data Transfer Objects)
-    // --------------------------------------------------------
+    // 2. MOBILE LOGOUT (Revokes session in DB only)
+    @PostMapping("/logout/mobile")
+    public ResponseEntity<?> logoutMobile(@RequestBody LogoutRequest request) {
+        authService.logout(request);
 
-    public static class RegisterRequest {
-        private String username;
-        private String email;
-        private String password;
-
-        public String getUsername() { return username; }
-        public void setUsername(String username) { this.username = username; }
-        public String getEmail() { return email; }
-        public void setEmail(String email) { this.email = email; }
-        public String getPassword() { return password; }
-        public void setPassword(String password) { this.password = password; }
+        // No cookies sent. The mobile app must delete its own stored tokens.
+        return ResponseEntity.ok("Successfully logged out from mobile.");
     }
 
-    public static class LoginRequest {
-        private String username;
-        private String password;
-        public String getUsername() { return username; }
-        public String getPassword() { return password; }
+    @GetMapping("/me/web")
+    public ResponseEntity<CurrentUserProfileResponse> getCurrentUser(
+            @CookieValue(name = "access_jwt", required = false) String accessToken) {
+        CurrentUserProfileResponse profile = authService.getCurrentUserProfile(accessToken);
+        return ResponseEntity.ok(profile);
     }
 
-    public static class RefreshRequest {
-        private String username;
-        private String refreshToken;
-        public String getUsername() { return username; }
-        public String getRefreshToken() { return refreshToken; }
-    }
+    private ResponseEntity<?> buildCookieResponse(String accessToken, String refreshToken, String message) {
+        ResponseCookie accessCookie = ResponseCookie.from("access_jwt", accessToken)
+                .httpOnly(true)
+                .secure(false) // TODO: Set to true in production with HTTPS
+                .path("/")
+                .maxAge(15 * 60) // 15 minutes
+                .sameSite("Lax")
+                .build();
 
-    public static class LogoutRequest {
-        private String username;
-        public String getUsername() { return username; }
-    }
+        ResponseCookie refreshCookie = ResponseCookie.from("refresh_jwt", refreshToken)
+                .httpOnly(true)
+                .secure(false) // TODO: Set to true in production
+                .path("/")
+                .maxAge(60 * 24 * 60 * 60) // 60 days
+                .sameSite("Lax")
+                .build();
 
-    public static class TokenResponse {
-        private String accessToken;
-        private String refreshToken;
-
-        public TokenResponse(String accessToken, String refreshToken) {
-            this.accessToken = accessToken;
-            this.refreshToken = refreshToken;
-        }
-        public String getAccessToken() { return accessToken; }
-        public String getRefreshToken() { return refreshToken; }
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                .body(message); // We no longer send tokens in the body!
     }
 }
