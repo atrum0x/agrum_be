@@ -1,5 +1,6 @@
 package com.atrum.agrum.user;
 
+import com.atrum.agrum.estate.Estate;
 import com.atrum.agrum.permission.PermissionSet;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -40,6 +41,14 @@ public class AppUser {
             inverseJoinColumns = @JoinColumn(name = "permission_set_id")
     )
     private Set<PermissionSet> permissionSets = new HashSet<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "user_allowed_estates",
+            joinColumns = @JoinColumn(name = "username"),
+            inverseJoinColumns = @JoinColumn(name = "estate_id")
+    )
+    private Set<Estate> allowedEstates = new HashSet<>();
 
     public AppUser(String username, String password, String email) {
         this.username = username;
