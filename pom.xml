@@ -161,6 +161,7 @@
 							<files>
 								<file>${project.basedir}/.env</file>
 							</files>
+							<quiet>true</quiet>
 						</configuration>
 					</execution>
 				</executions>

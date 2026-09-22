@@ -52,18 +52,13 @@ services:
       resources:
         limits:
           memory: 1536M  # Capping Spring Boot JVM container
+    env_file:
+      - .env
     environment:
       # Notice it connects using the container name 'postgres' instead of localhost!
       - DB_URL=jdbc:postgresql://postgres:5432/${DB_NAME}
-      - DB_USERNAME=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_EXP=${JWT_EXP}
-      - SUPERUSER_USERNAME=${SUPERUSER_USERNAME}
-      - SUPERUSER_EMAIL=${SUPERUSER_EMAIL}
-      - SUPERUSER_PASSWORD=${SUPERUSER_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy
