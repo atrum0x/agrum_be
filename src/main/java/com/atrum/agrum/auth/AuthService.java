@@ -9,9 +9,11 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import com.atrum.agrum.auth.AuthDto.*;
+import com.atrum.agrum.estate.Estate;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -56,9 +58,22 @@ public class AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new InvalidCredentialsException("Invalid credentials");
         }
+        List<String> estateIds = user.getAllowedEstates().stream()
+                .map(Estate::getId)
+                .toList();
 
-        String accessToken = tokenProvider.generateToken(user.getUsername());
+        String accessToken = tokenProvider.generateToken(user.getUsername(), estateIds);
         String refreshToken = UUID.randomUUID().toString();
+
+        try {
+            redisTemplate.opsForValue().set(
+                    "userEstates::" + user.getUsername(),
+                    String.join(",", estateIds), // e.g. "ESTATE_A,ESTATE_B"
+                    Duration.ofDays(1)
+            );
+        } catch (Exception e) {
+            System.err.println("Valkey/Redis is down! Relying on JWT claims.");
+        }
 
         saveRefreshToken(user.getUsername(), refreshToken);
 
@@ -84,9 +99,26 @@ public class AuthService {
         if (storedToken == null || !storedToken.equals(providedRefreshToken)) {
             throw new InvalidCredentialsException("Refresh token expired, invalid, or revoked. Please log in again.");
         }
+        AppUser user = userRepository.findById(username)
+                .orElseThrow(() -> new InvalidCredentialsException("User not found"));
 
-        String newAccessToken = tokenProvider.generateToken(username);
+        List<String> estateIds = user.getAllowedEstates().stream()
+                .map(Estate::getId)
+                .toList();
+
+        // 2. Generate the new token WITH the estate claims
+        String newAccessToken = tokenProvider.generateToken(username, estateIds);
         String newRefreshToken = UUID.randomUUID().toString();
+
+        try {
+            redisTemplate.opsForValue().set(
+                    "userEstates::" + user.getUsername(),
+                    String.join(",", estateIds), // e.g. "ESTATE_A,ESTATE_B"
+                    Duration.ofDays(1)
+            );
+        } catch (Exception e) {
+            System.err.println("Valkey/Redis is down! Relying on JWT claims.");
+        }
 
         saveRefreshToken(username, newRefreshToken);
 

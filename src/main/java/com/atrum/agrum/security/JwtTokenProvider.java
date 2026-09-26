@@ -9,6 +9,9 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Component
 public class JwtTokenProvider {
@@ -23,11 +26,15 @@ public class JwtTokenProvider {
         return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(String username) {
+    public String generateToken(String username, List<String> allowedEstateIds) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpiration);
 
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("estates", allowedEstateIds);
+
         return Jwts.builder()
+                .claims(claims)
                 .subject(username)
                 .issuedAt(now)
                 .expiration(expiryDate)
@@ -52,5 +59,18 @@ public class JwtTokenProvider {
         } catch (Exception ex) {
             return false;
         }
+    }
+
+    public List<String> extractEstates(String token) {
+        Claims claims = extractAllClaims(token);
+        return claims.get("estates", List.class);
+    }
+
+    private Claims extractAllClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(getSigningKey()) // Ensure 'key' is your SecretKey instance
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 }
