@@ -12,7 +12,12 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
 
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -38,10 +43,11 @@ public class PermissionSet {
     )
     private Set<Projection> projections = new HashSet<>();
 
-    public PermissionSet(String id, String description) {
-        this.id = id;
-        this.description = description;
-    }
+    @LastModifiedDate
+    private Date modified;
+
+    @LastModifiedBy
+    private String modifiedBy;
 
     public void addProjection(Projection projection) {
         this.projections.add(projection);

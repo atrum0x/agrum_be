@@ -29,4 +29,6 @@ public interface PermissionSetRepository extends JpaRepository<PermissionSet, St
             @Param("username") String username,
             @Param("httpMethod") String httpMethod
     );
+
+    List<PermissionSet> findByIdContainingIgnoreCaseOrDescriptionContainingIgnoreCase(String id, String description);
 }
