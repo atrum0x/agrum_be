@@ -9,6 +9,8 @@ import com.atrum.agrum.projection.ProjectionRepository;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.AppUserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -35,32 +37,49 @@ public class PermissionService {
     }
 
     @Transactional
-    public void grantProjectionToPermissionSet(String permissionSetId, String projectionId) {
-        PermissionSet ps = permissionSetRepository.findById(permissionSetId)
-                .orElseThrow(() -> new RuntimeException("Permission Set not found"));
-        Projection proj = projectionRepository.findById(projectionId)
-                .orElseThrow(() -> new RuntimeException("Projection not found"));
+    public void grantProjectionsToPermissionSet(String permissionSetId, List<String> projectionIds) {
+        if (projectionIds == null || projectionIds.isEmpty()) return;
+        PermissionSet permissionSet = permissionSetRepository.findById(permissionSetId).orElseThrow(() -> new RuntimeException("PermissionSet not found: " + permissionSetId));
+        List<Projection> projections = projectionRepository.findAllById(projectionIds);
+        projections.forEach(permissionSet::addProjection);
+        permissionSetRepository.save(permissionSet);
+    }
 
-        ps.addProjection(proj);
-        permissionSetRepository.save(ps);
+    @Transactional
+    public void revokeProjectionsFromPermissionSet(String permissionSetId, List<String> projectionIds) {
+        if (projectionIds == null || projectionIds.isEmpty()) return;
+        PermissionSet permissionSet = permissionSetRepository.findById(permissionSetId).orElseThrow(() -> new RuntimeException("PermissionSet not found: " + permissionSetId));
+        List<Projection> projections = projectionRepository.findAllById(projectionIds);
+
+        projections.forEach(permissionSet::removeProjection);
+        permissionSetRepository.save(permissionSet);
     }
 
     @Transactional
     public void grantPermissionSetToUser(String username, String permissionSetId) {
-        AppUser user = userRepository.findById(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        PermissionSet ps = permissionSetRepository.findById(permissionSetId)
-                .orElseThrow(() -> new RuntimeException("Permission Set not found"));
+        AppUser user = userRepository.findById(username).orElseThrow(() -> new RuntimeException("User not found"));
+        PermissionSet ps = permissionSetRepository.findById(permissionSetId).orElseThrow(() -> new RuntimeException("Permission Set not found"));
 
         user.addPermissionSet(ps);
         userRepository.save(user);
     }
 
     @Transactional(readOnly = true)
-    public Set<ProjectionDto> grantedProjections(String permissionSetId) {
-        PermissionSet ps = permissionSetRepository.findById(permissionSetId)
-                .orElseThrow(() -> new RuntimeException("Permission Set not found"));
-        return projectionMapper.toDtoSet(ps.getProjections());
+    public Page<ProjectionDto> grantedProjections(String permissionSetId, String search, Pageable pageable) {
+        String searchTerm = StringUtils.hasText(search) ? search.trim() : "";
+
+        Page<Projection> projectionsPage = permissionSetRepository.findGrantedProjections(permissionSetId, searchTerm, pageable);
+
+        return projectionsPage.map(projectionMapper::toDto);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<ProjectionDto> getUnassignedProjections(String permissionSetId, String search, Pageable pageable) {
+        String searchTerm = StringUtils.hasText(search) ? search.trim() : "";
+
+        Page<Projection> unassignedProjections = permissionSetRepository.findUnassignedProjections(permissionSetId, searchTerm, pageable);
+
+        return unassignedProjections.map(projectionMapper::toDto);
     }
 
     @Transactional(readOnly = true)
