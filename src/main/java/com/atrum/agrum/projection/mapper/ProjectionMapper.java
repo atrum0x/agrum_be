@@ -1,9 +1,10 @@
-package com.atrum.agrum.permission.mapper;
+package com.atrum.agrum.projection.mapper;
 
-import com.atrum.agrum.permission.dto.ProjectionDto;
-import com.atrum.agrum.projection.Projection;
+import com.atrum.agrum.projection.dto.ProjectionDto;
 
 import java.util.Set;
+
+import com.atrum.agrum.projection.Projection;
 import org.mapstruct.Mapper;
 
 // componentModel = "spring" allows you to @Autowire this interface

@@ -1,8 +1,9 @@
 package com.atrum.agrum.permission;
 
 import com.atrum.agrum.permission.dto.PermissionSetDto;
-import com.atrum.agrum.permission.dto.ProjectionDto;
+import com.atrum.agrum.projection.dto.ProjectionDto;
 import com.atrum.agrum.projection.Projection;
+import com.atrum.agrum.user.dto.AppUserDto;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.domain.Pageable;
@@ -13,7 +14,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.data.domain.Page;
 
 import java.util.List;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api/permissionSet")
@@ -93,5 +93,15 @@ public class PermissionController {
     @GetMapping("")
     public ResponseEntity<List<PermissionSetDto>> getAllPermissionSets(@RequestParam(required = false) String search) {
         return ResponseEntity.ok(permissionService.allPermissions(search));
+    }
+
+    @GetMapping("grantedUsers/{permissionID}")
+    public ResponseEntity<List<AppUserDto>> getGrantedAppUsers(@PathVariable(required = true) String permissionID, @RequestParam(required = false) String search) {
+        return ResponseEntity.ok(permissionService.getGrantedUsers(permissionID, search));
+    }
+
+    @GetMapping("unassignedUsers/{permissionID}")
+    public ResponseEntity<List<AppUserDto>> getUnassignedAppUsers(@PathVariable(required = true) String permissionID, @RequestParam(required = false) String search) {
+        return ResponseEntity.ok(permissionService.getUnassignedUsers(permissionID, search));
     }
 }

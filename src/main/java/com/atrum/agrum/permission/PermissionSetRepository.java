@@ -1,6 +1,7 @@
 package com.atrum.agrum.permission;
 
 import com.atrum.agrum.projection.Projection;
+import com.atrum.agrum.user.AppUser;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -68,4 +69,12 @@ public interface PermissionSetRepository extends JpaRepository<PermissionSet, St
             @Param("search") String search,
             Pageable pageable
     );
+
+    @Query("SELECT DISTINCT u FROM AppUser u JOIN u.permissionSets ps WHERE ps.id = :permissionSetId " +
+            "AND (:search = '' OR LOWER(u.username) LIKE LOWER(CONCAT('%', :search, '%')))")
+    List<AppUser> findGrantedUsers(@Param("permissionSetId") String permissionSetId, @Param("search") String search);
+
+    @Query("SELECT DISTINCT u FROM AppUser u WHERE NOT EXISTS (SELECT 1 FROM u.permissionSets ps WHERE ps.id = :permissionSetId) " +
+            "AND (:search = '' OR LOWER(u.username) LIKE LOWER(CONCAT('%', :search, '%')))")
+    List<AppUser> findUnassignedUsers(@Param("permissionSetId") String permissionSetId, @Param("search") String search);
 }

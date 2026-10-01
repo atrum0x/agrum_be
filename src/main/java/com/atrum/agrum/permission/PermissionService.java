@@ -1,13 +1,15 @@
 package com.atrum.agrum.permission;
 
 import com.atrum.agrum.permission.dto.PermissionSetDto;
-import com.atrum.agrum.permission.dto.ProjectionDto;
+import com.atrum.agrum.projection.dto.ProjectionDto;
 import com.atrum.agrum.permission.mapper.PermissionSetMapper;
-import com.atrum.agrum.permission.mapper.ProjectionMapper;
+import com.atrum.agrum.projection.mapper.ProjectionMapper;
 import com.atrum.agrum.projection.Projection;
 import com.atrum.agrum.projection.ProjectionRepository;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.AppUserRepository;
+import com.atrum.agrum.user.dto.AppUserDto;
+import com.atrum.agrum.user.mapper.AppUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -16,7 +18,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -27,6 +28,7 @@ public class PermissionService {
     private final AppUserRepository userRepository;
     private final ProjectionMapper projectionMapper;
     private final PermissionSetMapper permissionSetMapper;
+    private final AppUserMapper appUserMapper;
 
     public List<Projection> getAllProjections() {
         return projectionRepository.findAll();
@@ -94,5 +96,19 @@ public class PermissionService {
         }
 
         return permissionSetMapper.toDtoSet(ps);
+    }
+
+    @Transactional
+    public List<AppUserDto> getGrantedUsers(String permissionSetId, String search) {
+        String searchTerm = StringUtils.hasText(search) ? search.trim() : "";
+
+        return appUserMapper.toDtoList(permissionSetRepository.findGrantedUsers(permissionSetId, searchTerm));
+
+    }
+
+    @Transactional
+    public List<AppUserDto> getUnassignedUsers(String permissionSetId, String search) {
+        String searchTerm = StringUtils.hasText(search) ? search.trim() : "";
+        return appUserMapper.toDtoList(permissionSetRepository.findUnassignedUsers(permissionSetId, search));
     }
 }
