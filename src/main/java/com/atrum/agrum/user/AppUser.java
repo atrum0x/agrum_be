@@ -31,9 +31,6 @@ public class AppUser {
     @Column(name = "password", nullable = false)
     private String password;
 
-    @Column(name = "email")
-    private String email;
-
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "user_grants",
@@ -50,10 +47,9 @@ public class AppUser {
     )
     private Set<Estate> allowedEstates = new HashSet<>();
 
-    public AppUser(String username, String password, String email) {
+    public AppUser(String username, String password) {
         this.username = username;
         this.password = password;
-        this.email = email;
     }
 
     public void addPermissionSet(PermissionSet permissionSet) {

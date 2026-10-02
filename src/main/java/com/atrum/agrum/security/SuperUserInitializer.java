@@ -33,7 +33,6 @@ public class SuperUserInitializer implements CommandLineRunner {
         if (userRepository.findById(superUsername).isEmpty()) {
             AppUser superUser = new AppUser();
             superUser.setUsername(superUsername);
-            superUser.setEmail(superEmail);
             // Securely hash the password coming from the .env file
             superUser.setPassword(passwordEncoder.encode(superPassword));
 

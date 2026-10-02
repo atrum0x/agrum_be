@@ -1,4 +1,4 @@
-package com.atrum.agrum.permission.dto;
+package com.atrum.agrum.projection.dto;
 
 public record ProjectionDto(
         String id,

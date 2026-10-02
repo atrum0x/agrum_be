@@ -45,7 +45,6 @@ public class AuthService {
 
         AppUser user = new AppUser();
         user.setUsername(request.getUsername());
-        user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
 
         userRepository.save(user);
@@ -172,6 +171,6 @@ public class AuthService {
         AppUser user = userRepository.findById(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        return new CurrentUserProfileResponse(user.getUsername(), user.getEmail());
+        return new CurrentUserProfileResponse(user.getUsername());
     }
 }

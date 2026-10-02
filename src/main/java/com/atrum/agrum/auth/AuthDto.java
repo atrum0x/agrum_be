@@ -9,7 +9,6 @@ public class AuthDto {
     @Getter
     public static class RegisterRequest {
         private String username;
-        private String email;
         private String password;
 
     }
@@ -45,11 +44,8 @@ public class AuthDto {
     @Getter
     public static class CurrentUserProfileResponse {
         private String username;
-        private String email;
-
-        public CurrentUserProfileResponse(String username, String email) {
+        public CurrentUserProfileResponse(String username) {
             this.username = username;
-            this.email = email;
         }
 
     }
