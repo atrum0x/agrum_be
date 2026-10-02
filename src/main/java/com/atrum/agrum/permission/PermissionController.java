@@ -43,6 +43,7 @@ public class PermissionController {
     public static class ProjectionsRequest {
         private List<String> projectionIds;
     }
+
     //Add a Projection to a Permission Set
     @PostMapping("{permissionSetId}/grantProjections")
     public ResponseEntity<String> grantProjectionsToPermissionSet(
@@ -62,14 +63,22 @@ public class PermissionController {
         return ResponseEntity.ok(request.getProjectionIds().size() + " projection(s) revoked from Permission Set " + permissionSetId);
     }
 
-    //Assign a Permission Set to a User
-    @PostMapping("/users/{username}/permission-sets/{permissionSetId}")
+    @PostMapping("{permissionSetId}/grantUsers")
     public ResponseEntity<String> grantPermissionSetToUser(
-            @PathVariable String username,
+            @RequestBody List<String> usernames,
             @PathVariable String permissionSetId) {
 
-        permissionService.grantPermissionSetToUser(username, permissionSetId);
-        return ResponseEntity.ok("Permission Set " + permissionSetId + " assigned to User " + username);
+        permissionService.grantPermissionSetToUsers(usernames, permissionSetId);
+        return ResponseEntity.ok("Permission Set " + permissionSetId + " assigned to Users");
+    }
+
+    @PostMapping("{permissionSetId}/revokeUsers")
+    public ResponseEntity<String> revokePermissionSetToUser(
+            @RequestBody List<String> usernames,
+            @PathVariable String permissionSetId
+    ) {
+        permissionService.revokePermissionSetToUsers(usernames, permissionSetId);
+        return ResponseEntity.ok("Permission Set " + permissionSetId + " revoked from Users");
     }
 
     @GetMapping("grantedProjections/{permissionSetId}")

@@ -58,12 +58,19 @@ public class PermissionService {
     }
 
     @Transactional
-    public void grantPermissionSetToUser(String username, String permissionSetId) {
-        AppUser user = userRepository.findById(username).orElseThrow(() -> new RuntimeException("User not found"));
+    public void grantPermissionSetToUsers(List<String> usernames, String permissionSetId) {
         PermissionSet ps = permissionSetRepository.findById(permissionSetId).orElseThrow(() -> new RuntimeException("Permission Set not found"));
+        List<AppUser> appUsers = userRepository.findAllById(usernames);
+        appUsers.forEach(user -> user.addPermissionSet(ps));
+        userRepository.saveAll(appUsers);
+    }
 
-        user.addPermissionSet(ps);
-        userRepository.save(user);
+    @Transactional
+    public void revokePermissionSetToUsers(List<String> usernames, String permissionSetId) {
+        PermissionSet ps = permissionSetRepository.findById(permissionSetId).orElseThrow(() -> new RuntimeException("Permission Set not found"));
+        List<AppUser> appUsers = userRepository.findAllById(usernames);
+        appUsers.forEach(user -> user.removePermissionSet(ps));
+        userRepository.saveAll(appUsers);
     }
 
     @Transactional(readOnly = true)
@@ -109,6 +116,6 @@ public class PermissionService {
     @Transactional
     public List<AppUserDto> getUnassignedUsers(String permissionSetId, String search) {
         String searchTerm = StringUtils.hasText(search) ? search.trim() : "";
-        return appUserMapper.toDtoList(permissionSetRepository.findUnassignedUsers(permissionSetId, search));
+        return appUserMapper.toDtoList(permissionSetRepository.findUnassignedUsers(permissionSetId, searchTerm));
     }
 }
