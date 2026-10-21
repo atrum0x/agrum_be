@@ -17,10 +17,6 @@ import com.atrum.agrum.user.AppUser;
         name = "employees",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_employee_uuid",
-                        columnNames = "employee_uuid"
-                ),
-                @UniqueConstraint(
                         name = "uk_employee_nic",
                         columnNames = "nic"
                 )

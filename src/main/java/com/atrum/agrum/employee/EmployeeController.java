@@ -3,6 +3,8 @@ package com.atrum.agrum.employee;
 import com.atrum.agrum.employee.dto.CreateEmployeeRequest;
 import com.atrum.agrum.employee.dto.EmployeeDto;
 import com.atrum.agrum.employee.dto.UpdateEmployeeRequest;
+import com.atrum.agrum.estate.dto.EstateDto;
+import com.atrum.agrum.permission.dto.PermissionSetDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,13 +25,27 @@ public class EmployeeController {
     }
 
     @GetMapping
-    public ResponseEntity<List<EmployeeDto>> findAll() {
-        return ResponseEntity.ok(employeeService.findAll());
+    public ResponseEntity<List<EmployeeDto>> getAllEmployees(@RequestParam(required = false) String search) {
+        return ResponseEntity.ok(employeeService.findAll(search));
     }
 
     @GetMapping("/{employeeCode}")
     public ResponseEntity<EmployeeDto> findByCode(@PathVariable String employeeCode) {
         return ResponseEntity.ok(employeeService.findByCode(employeeCode));
+    }
+
+    @GetMapping("/grantedPermissions/{employeeCode}")
+    public ResponseEntity<List<PermissionSetDto>> getPermissionSets(
+            @PathVariable String employeeCode,
+            @RequestParam(required = false) String search) {
+        return ResponseEntity.ok(employeeService.getGrantedPermissionSets(employeeCode, search));
+    }
+
+    @GetMapping("grantedEstates/{employeeCode}")
+    public ResponseEntity<List<EstateDto>> getGrantedEstates(
+            @PathVariable String employeeCode,
+            @RequestParam(required = false) String search) {
+        return ResponseEntity.ok(employeeService.getGrantedEstates(employeeCode, search));
     }
 
     @PutMapping("/{employeeCode}")

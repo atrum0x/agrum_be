@@ -47,7 +47,9 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(request.password()));
         user.setEmployee(employee);
 
-        return userMapper.toDto(userRepository.save(user));
+        AppUser savedUser = userRepository.save(user);
+        employee.setUserAccount(savedUser);
+        return userMapper.toDto(savedUser);
     }
 
     @Transactional(readOnly = true)

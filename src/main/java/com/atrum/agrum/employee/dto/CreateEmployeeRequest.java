@@ -18,6 +18,8 @@ public record CreateEmployeeRequest(
         String defaultEstateId,
         String homeEstateId,
         String division,
-        String field
+        String field,
+        boolean isUserAccount,
+        String password
 ) {
 }

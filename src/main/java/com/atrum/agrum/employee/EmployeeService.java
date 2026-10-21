@@ -6,10 +6,17 @@ import com.atrum.agrum.employee.dto.UpdateEmployeeRequest;
 import com.atrum.agrum.employee.mapper.EmployeeMapper;
 import com.atrum.agrum.estate.Estate;
 import com.atrum.agrum.estate.EstateRepository;
+import com.atrum.agrum.estate.dto.EstateDto;
+import com.atrum.agrum.estate.mapper.EstateMapper;
 import com.atrum.agrum.exception.ResourceNotFoundException;
+import com.atrum.agrum.permission.dto.PermissionSetDto;
+import com.atrum.agrum.permission.mapper.PermissionSetMapper;
+import com.atrum.agrum.user.UserService;
+import com.atrum.agrum.user.dto.CreateUserRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 
@@ -19,22 +26,43 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final EstateRepository estateRepository;
+    private final EstateMapper estateMapper;
     private final EmployeeMapper employeeMapper;
+    private final PermissionSetMapper permissionSetMapper;
+    private final UserService userService;
 
     @Transactional
     public EmployeeDto create(CreateEmployeeRequest request) {
         if (employeeRepository.existsById(request.employeeCode())) {
             throw new IllegalArgumentException("Employee code is already in use: " + request.employeeCode());
         }
+        if (request.isUserAccount() && (request.password() == null || request.password().isBlank())) {
+            throw new IllegalArgumentException("Password is required when creating a user account");
+        }
 
         Employee employee = employeeMapper.fromCreateRequest(request);
         applyEstates(employee, request.defaultEstateId(), request.homeEstateId());
-        return employeeMapper.toDto(employeeRepository.save(employee));
+        Employee savedEmployee = employeeRepository.save(employee);
+
+        if (request.isUserAccount()) {
+            userService.create(new CreateUserRequest(savedEmployee.getEmployeeCode(), request.password()));
+        }
+
+        return employeeMapper.toDto(savedEmployee);
     }
 
     @Transactional(readOnly = true)
-    public List<EmployeeDto> findAll() {
-        return employeeRepository.findAll().stream()
+    public List<EmployeeDto> findAll(String search) {
+        List<Employee> employees;
+
+        if (StringUtils.hasText(search)) {
+            String query = search.trim();
+            employees = employeeRepository.searchEmployees(query);
+        } else {
+            employees = employeeRepository.findAll();
+        }
+
+        return employees.stream()
                 .map(employeeMapper::toDto)
                 .toList();
     }
@@ -80,5 +108,21 @@ public class EmployeeService {
         return estateRepository.findById(estateId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Estate not found: " + estateId));
+    }
+
+    @Transactional(readOnly = true)
+    public List<PermissionSetDto> getGrantedPermissionSets(String employeeCode, String search) {
+        String searchTerm = StringUtils.hasText(search) ? search.trim() : "";
+
+        return permissionSetMapper.toDtoSet(
+                employeeRepository.findGrantedPermissionSets(employeeCode, searchTerm));
+    }
+
+    @Transactional(readOnly = true)
+    public List<EstateDto> getGrantedEstates(String employeeCode, String search) {
+        String searchTerm = StringUtils.hasText(search) ? search.trim() : "";
+
+        return estateMapper.toDtoList(
+                employeeRepository.findGrantedEstates(employeeCode, searchTerm));
     }
 }
