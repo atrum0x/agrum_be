@@ -16,8 +16,23 @@ public class Estate {
     @Column(name = "name", nullable = false)
     private String name;
 
+    @Column(name = "address", nullable = true)
+    private String address;
+
     @Column(name = "active", nullable = false)
     private Boolean active = true;
+
+    @Column(name = "full_day_qty_kg", nullable = false)
+    private Integer fullDayQtyKg;
+
+    @Column(name = "half_day_qty_kg", nullable = false)
+    private Integer halfDayQtyKg;
+
+    @Column(name = "max_daily_transactions", nullable = false)
+    private Integer maxDailyTransactions;
+
+    @Column(name = "variance_percent", nullable = false)
+    private Float variancePercent;
 
     public Estate() {}
 

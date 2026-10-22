@@ -1,15 +1,9 @@
 package com.atrum.agrum.user;
 
+import com.atrum.agrum.employee.Employee;
 import com.atrum.agrum.estate.Estate;
 import com.atrum.agrum.permission.PermissionSet;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.JoinTable;
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -30,6 +24,14 @@ public class AppUser {
 
     @Column(name = "password", nullable = false)
     private String password;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(
+            name = "employee_code",
+            referencedColumnName = "employee_code",
+            unique = true
+    )
+    private Employee employee;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -56,7 +58,15 @@ public class AppUser {
         this.permissionSets.add(permissionSet);
     }
 
+    public void addAllowedEstate(Estate estate) {
+        this.allowedEstates.add(estate);
+    }
+
     public void removePermissionSet(PermissionSet permissionSet) {
         this.permissionSets.remove(permissionSet);
+    }
+
+    public void removeAllowedEstate(Estate estate) {
+        this.allowedEstates.remove(estate);
     }
 }

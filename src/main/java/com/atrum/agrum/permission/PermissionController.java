@@ -1,6 +1,8 @@
 package com.atrum.agrum.permission;
 
+import com.atrum.agrum.permission.dto.CreatePermissionSetRequest;
 import com.atrum.agrum.permission.dto.PermissionSetDto;
+import com.atrum.agrum.permission.dto.UpdatePermissionSetRequest;
 import com.atrum.agrum.projection.dto.ProjectionDto;
 import com.atrum.agrum.projection.Projection;
 import com.atrum.agrum.user.dto.AppUserDto;
@@ -33,8 +35,16 @@ public class PermissionController {
 
     //Create a new Permission Set
     @PostMapping("/permission-sets")
-    public ResponseEntity<PermissionSet> createPermissionSet(@RequestBody PermissionSet permissionSet) {
-        return ResponseEntity.ok(permissionService.createPermissionSet(permissionSet));
+    public ResponseEntity<PermissionSetDto> createPermissionSet(@RequestBody CreatePermissionSetRequest request) {
+        return ResponseEntity.ok(permissionService.createPermissionSet(request));
+    }
+
+    //Update a Permission Set's description
+    @PutMapping("{permissionSetId}")
+    public ResponseEntity<PermissionSetDto> updatePermissionSet(
+            @PathVariable String permissionSetId,
+            @RequestBody UpdatePermissionSetRequest request) {
+        return ResponseEntity.ok(permissionService.updatePermissionSet(permissionSetId, request));
     }
 
 

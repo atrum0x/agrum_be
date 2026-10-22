@@ -125,8 +125,10 @@ public class AuthService {
     }
 
     public void logout(LogoutRequest request) {
-        String username = request.getUsername();
+        revokeSessions(request.getUsername());
+    }
 
+    public void revokeSessions(String username) {
         refreshTokenRepository.deleteById(username);
 
         try {
