@@ -69,6 +69,9 @@ public class Employee {
     @Column(name = "start_date")
     private LocalDate startDate;
 
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
     /**
      * Normal/current working site.
      * This is separate from AppUser.allowedEstates,

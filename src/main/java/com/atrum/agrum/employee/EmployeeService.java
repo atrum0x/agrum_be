@@ -1,5 +1,6 @@
 package com.atrum.agrum.employee;
 
+import com.atrum.agrum.auth.AuthService;
 import com.atrum.agrum.employee.dto.CreateEmployeeRequest;
 import com.atrum.agrum.employee.dto.EmployeeDto;
 import com.atrum.agrum.employee.dto.UpdateEmployeeRequest;
@@ -9,6 +10,8 @@ import com.atrum.agrum.estate.EstateRepository;
 import com.atrum.agrum.estate.dto.EstateDto;
 import com.atrum.agrum.estate.mapper.EstateMapper;
 import com.atrum.agrum.exception.ResourceNotFoundException;
+import com.atrum.agrum.permission.PermissionSet;
+import com.atrum.agrum.permission.PermissionSetRepository;
 import com.atrum.agrum.permission.dto.PermissionSetDto;
 import com.atrum.agrum.permission.mapper.PermissionSetMapper;
 import com.atrum.agrum.user.UserService;
@@ -26,10 +29,12 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final EstateRepository estateRepository;
+    private final PermissionSetRepository permissionSetRepository;
     private final EstateMapper estateMapper;
     private final EmployeeMapper employeeMapper;
     private final PermissionSetMapper permissionSetMapper;
     private final UserService userService;
+    private final AuthService authService;
 
     @Transactional
     public EmployeeDto create(CreateEmployeeRequest request) {
@@ -81,6 +86,18 @@ public class EmployeeService {
     }
 
     @Transactional
+    public void setPassword(String employeeCode, String newPassword) {
+        Employee employee = getEmployee(employeeCode);
+        if (employee.getUserAccount() == null) {
+            throw new IllegalArgumentException("Employee has no user account: " + employeeCode);
+        }
+        String username = employee.getUserAccount().getUsername();
+        userService.setPassword(username, newPassword);
+        // Force existing sessions to log in again with the new password
+        authService.revokeSessions(username);
+    }
+
+    @Transactional
     public void delete(String employeeCode) {
         Employee employee = getEmployee(employeeCode);
         if (employee.getUserAccount() != null) {
@@ -119,10 +136,78 @@ public class EmployeeService {
     }
 
     @Transactional(readOnly = true)
+    public List<PermissionSetDto> getUnassignedPermissionSets(String employeeCode, String search) {
+        String searchTerm = StringUtils.hasText(search) ? search.trim() : "";
+
+        return permissionSetMapper.toDtoSet(
+                employeeRepository.findUnassignedPermissionSets(employeeCode, searchTerm));
+    }
+
+    @Transactional(readOnly = true)
     public List<EstateDto> getGrantedEstates(String employeeCode, String search) {
         String searchTerm = StringUtils.hasText(search) ? search.trim() : "";
 
         return estateMapper.toDtoList(
                 employeeRepository.findGrantedEstates(employeeCode, searchTerm));
+    }
+
+    @Transactional(readOnly = true)
+    public List<EstateDto> getUnassignedEstates(String employeeCode, String search) {
+        String searchTerm = StringUtils.hasText(search) ? search.trim() : "";
+
+        return estateMapper.toDtoList(
+                employeeRepository.findUnassignedEstates(employeeCode, searchTerm));
+    }
+
+    @Transactional
+    public void revokePermissionSets(String employeeCode, List<String> permissionSetIds) {
+        if (permissionSetIds == null || permissionSetIds.isEmpty()) return;
+
+        Employee employee = getEmployee(employeeCode);
+        if (employee.getUserAccount() == null) {
+            throw new IllegalStateException("Employee has no user account: " + employeeCode);
+        }
+
+        List<PermissionSet> permissionSets = permissionSetRepository.findAllById(permissionSetIds);
+        permissionSets.forEach(employee.getUserAccount()::removePermissionSet);
+    }
+
+    @Transactional
+    public void grantPermissionSets(String employeeCode, List<String> permissionSetIds) {
+        if (permissionSetIds == null || permissionSetIds.isEmpty()) return;
+
+        Employee employee = getEmployee(employeeCode);
+        if (employee.getUserAccount() == null) {
+            throw new IllegalStateException("Employee has no user account: " + employeeCode);
+        }
+
+        List<PermissionSet> permissionSets = permissionSetRepository.findAllById(permissionSetIds);
+        permissionSets.forEach(employee.getUserAccount()::addPermissionSet);
+    }
+
+    @Transactional
+    public void revokeEstates(String employeeCode, List<String> estateIds) {
+        if (estateIds == null || estateIds.isEmpty()) return;
+
+        Employee employee = getEmployee(employeeCode);
+        if (employee.getUserAccount() == null) {
+            throw new IllegalStateException("Employee has no user account: " + employeeCode);
+        }
+
+        List<Estate> estates = estateRepository.findAllById(estateIds);
+        estates.forEach(employee.getUserAccount()::removeAllowedEstate);
+    }
+
+    @Transactional
+    public void grantEstates(String employeeCode, List<String> estateIds) {
+        if (estateIds == null || estateIds.isEmpty()) return;
+
+        Employee employee = getEmployee(employeeCode);
+        if (employee.getUserAccount() == null) {
+            throw new IllegalStateException("Employee has no user account: " + employeeCode);
+        }
+
+        List<Estate> estates = estateRepository.findAllById(estateIds);
+        estates.forEach(employee.getUserAccount()::addAllowedEstate);
     }
 }

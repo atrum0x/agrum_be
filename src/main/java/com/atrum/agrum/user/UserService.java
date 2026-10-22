@@ -63,6 +63,15 @@ public class UserService {
     }
 
     @Transactional
+    public void setPassword(String username, String newPassword) {
+        if (newPassword == null || newPassword.isBlank()) {
+            throw new IllegalArgumentException("Password is required");
+        }
+        AppUser user = getUser(username);
+        user.setPassword(passwordEncoder.encode(newPassword));
+    }
+
+    @Transactional
     public void delete(String username) {
         userRepository.delete(getUser(username));
     }

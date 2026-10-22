@@ -15,6 +15,7 @@ public record CreateEmployeeRequest(
         String employeeCategory,
         EmploymentStatus employmentStatus,
         LocalDate startDate,
+        LocalDate endDate,
         String defaultEstateId,
         String homeEstateId,
         String division,

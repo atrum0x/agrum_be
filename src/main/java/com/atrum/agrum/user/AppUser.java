@@ -58,7 +58,15 @@ public class AppUser {
         this.permissionSets.add(permissionSet);
     }
 
+    public void addAllowedEstate(Estate estate) {
+        this.allowedEstates.add(estate);
+    }
+
     public void removePermissionSet(PermissionSet permissionSet) {
         this.permissionSets.remove(permissionSet);
+    }
+
+    public void removeAllowedEstate(Estate estate) {
+        this.allowedEstates.remove(estate);
     }
 }

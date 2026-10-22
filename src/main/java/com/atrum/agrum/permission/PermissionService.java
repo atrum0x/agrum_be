@@ -1,6 +1,9 @@
 package com.atrum.agrum.permission;
 
+import com.atrum.agrum.exception.ResourceNotFoundException;
+import com.atrum.agrum.permission.dto.CreatePermissionSetRequest;
 import com.atrum.agrum.permission.dto.PermissionSetDto;
+import com.atrum.agrum.permission.dto.UpdatePermissionSetRequest;
 import com.atrum.agrum.projection.dto.ProjectionDto;
 import com.atrum.agrum.permission.mapper.PermissionSetMapper;
 import com.atrum.agrum.projection.mapper.ProjectionMapper;
@@ -34,8 +37,29 @@ public class PermissionService {
         return projectionRepository.findAll();
     }
 
-    public PermissionSet createPermissionSet(PermissionSet permissionSet) {
-        return permissionSetRepository.save(permissionSet);
+    @Transactional
+    public PermissionSetDto createPermissionSet(CreatePermissionSetRequest request) {
+        if (!StringUtils.hasText(request.permissionSetId())) {
+            throw new IllegalArgumentException("Permission set ID is required");
+        }
+        String permissionSetId = request.permissionSetId().trim();
+        // save() would silently replace an existing set and drop its grants
+        if (permissionSetRepository.existsById(permissionSetId)) {
+            throw new IllegalArgumentException("Permission set already exists: " + permissionSetId);
+        }
+
+        PermissionSet permissionSet = new PermissionSet();
+        permissionSet.setId(permissionSetId);
+        permissionSet.setDescription(request.description());
+        return permissionSetMapper.toDto(permissionSetRepository.save(permissionSet));
+    }
+
+    @Transactional
+    public PermissionSetDto updatePermissionSet(String permissionSetId, UpdatePermissionSetRequest request) {
+        PermissionSet permissionSet = permissionSetRepository.findById(permissionSetId)
+                .orElseThrow(() -> new ResourceNotFoundException("PermissionSet not found: " + permissionSetId));
+        permissionSet.setDescription(request.description());
+        return permissionSetMapper.toDto(permissionSetRepository.save(permissionSet));
     }
 
     @Transactional
