@@ -86,8 +86,49 @@ public interface EmployeeRepository extends JpaRepository<Employee, String> {
     );
 
     @Query("""
-            SELECT e FROM Employee e 
-            WHERE :search IS NULL 
+            SELECT DISTINCT e FROM Employee e
+            JOIN e.userAccount u
+            JOIN u.allowedEstates estate
+            WHERE estate.id = :estateId
+              AND (
+                  :search = ''
+                  OR LOWER(e.employeeCode) LIKE LOWER(CONCAT('%', :search, '%'))
+                  OR LOWER(e.firstName) LIKE LOWER(CONCAT('%', :search, '%'))
+                  OR LOWER(e.lastName) LIKE LOWER(CONCAT('%', :search, '%'))
+              )
+            ORDER BY e.employeeCode
+            """)
+    List<Employee> findUsersGrantedEstate(
+            @Param("estateId") String estateId,
+            @Param("search") String search
+    );
+
+    /** Employees with a user account that have not been granted the estate. */
+    @Query("""
+            SELECT e FROM Employee e
+            JOIN e.userAccount u
+            WHERE NOT EXISTS (
+                SELECT 1 FROM AppUser granted
+                JOIN granted.allowedEstates assigned
+                WHERE granted = u
+                  AND assigned.id = :estateId
+            )
+            AND (
+                :search = ''
+                OR LOWER(e.employeeCode) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(e.firstName) LIKE LOWER(CONCAT('%', :search, '%'))
+                OR LOWER(e.lastName) LIKE LOWER(CONCAT('%', :search, '%'))
+            )
+            ORDER BY e.employeeCode
+            """)
+    List<Employee> findUsersNotGrantedEstate(
+            @Param("estateId") String estateId,
+            @Param("search") String search
+    );
+
+    @Query("""
+            SELECT e FROM Employee e
+            WHERE :search IS NULL
                OR :search = '' 
                OR LOWER(e.employeeCode) LIKE LOWER(CONCAT('%', :search, '%'))
                OR LOWER(e.firstName) LIKE LOWER(CONCAT('%', :search, '%'))
