@@ -2,11 +2,14 @@ package com.atrum.agrum.user;
 
 import com.atrum.agrum.employee.Employee;
 import com.atrum.agrum.employee.EmployeeRepository;
+import com.atrum.agrum.exception.InsufficientPermissionException;
 import com.atrum.agrum.exception.ResourceNotFoundException;
 import com.atrum.agrum.user.dto.AppUserDto;
 import com.atrum.agrum.user.dto.CreateUserRequest;
 import com.atrum.agrum.user.mapper.AppUserMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -74,6 +77,15 @@ public class UserService {
     @Transactional
     public void delete(String username) {
         userRepository.delete(getUser(username));
+    }
+
+    /** The logged-in user, e.g. to stamp recorded_by / corrected_by. */
+    public AppUser getCurrentUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new InsufficientPermissionException("You must be logged in.");
+        }
+        return getUser(auth.getName());
     }
 
     private AppUser getUser(String username) {

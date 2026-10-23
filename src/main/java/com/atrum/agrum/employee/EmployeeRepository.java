@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
@@ -136,4 +137,24 @@ public interface EmployeeRepository extends JpaRepository<Employee, String> {
                OR LOWER(e.nic) LIKE LOWER(CONCAT('%', :search, '%'))
             """)
     List<Employee> searchEmployees(@Param("search") String search);
+
+    /** Employees with the status who are employed on the date (AT-03, AT-04), from all estates. */
+    @Query("""
+            SELECT e FROM Employee e
+            WHERE e.employmentStatus = :status
+              AND (e.startDate IS NULL OR e.startDate <= :date)
+              AND (e.endDate IS NULL OR e.endDate >= :date)
+              AND (
+                  :search = ''
+                  OR LOWER(e.employeeCode) LIKE LOWER(CONCAT('%', :search, '%'))
+                  OR LOWER(e.firstName) LIKE LOWER(CONCAT('%', :search, '%'))
+                  OR LOWER(e.lastName) LIKE LOWER(CONCAT('%', :search, '%'))
+              )
+            ORDER BY e.employeeCode
+            """)
+    List<Employee> findEmployedOn(
+            @Param("status") EmploymentStatus status,
+            @Param("date") LocalDate date,
+            @Param("search") String search
+    );
 }

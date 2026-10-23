@@ -19,4 +19,7 @@ public interface WorkTypeRepository extends JpaRepository<WorkType, String> {
 
     @Query("SELECT wt FROM WorkType wt WHERE wt.estateId = :estateId AND wt.workType IN :workTypes")
     List<WorkType> findAllInEstate(@Param("estateId") String estateId, @Param("workTypes") List<String> workTypes);
+
+    @Query("SELECT COUNT(wt) > 0 FROM WorkType wt WHERE wt.estateId = :estateId")
+    boolean existsInEstate(@Param("estateId") String estateId);
 }
