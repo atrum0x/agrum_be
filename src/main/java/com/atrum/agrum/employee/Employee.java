@@ -1,5 +1,6 @@
 package com.atrum.agrum.employee;
 
+import com.atrum.agrum.collectionPoint.CollectionPoint;
 import com.atrum.agrum.estate.Estate;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -80,6 +81,13 @@ public class Employee {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "default_estate_id")
     private Estate defaultEstate;
+
+    /**
+     * Normal collection point; must belong to defaultEstate.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "default_collection_point_code")
+    private CollectionPoint defaultCollectionPoint;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "home_estate_id")

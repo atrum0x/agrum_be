@@ -17,6 +17,7 @@ public record CreateEmployeeRequest(
         LocalDate startDate,
         LocalDate endDate,
         String defaultEstateId,
+        String defaultCollectionPointCode,
         String homeEstateId,
         String division,
         String field,

@@ -12,11 +12,13 @@ import org.mapstruct.MappingTarget;
 public interface EmployeeMapper {
 
     @Mapping(target = "defaultEstateId", source = "defaultEstate.id")
+    @Mapping(target = "defaultCollectionPointCode", source = "defaultCollectionPoint.cpCode")
     @Mapping(target = "homeEstateId", source = "homeEstate.id")
     @Mapping(target = "hasUserAccount", expression = "java(employee.getUserAccount() != null)")
     EmployeeDto toDto(Employee employee);
 
     @Mapping(target = "defaultEstate", ignore = true)
+    @Mapping(target = "defaultCollectionPoint", ignore = true)
     @Mapping(target = "homeEstate", ignore = true)
     @Mapping(target = "userAccount", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
@@ -24,6 +26,7 @@ public interface EmployeeMapper {
     Employee fromCreateRequest(CreateEmployeeRequest request);
 
     @Mapping(target = "defaultEstate", ignore = true)
+    @Mapping(target = "defaultCollectionPoint", ignore = true)
     @Mapping(target = "homeEstate", ignore = true)
     @Mapping(target = "employeeCode", ignore = true)
     @Mapping(target = "userAccount", ignore = true)

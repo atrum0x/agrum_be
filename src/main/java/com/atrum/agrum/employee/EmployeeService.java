@@ -1,6 +1,8 @@
 package com.atrum.agrum.employee;
 
 import com.atrum.agrum.auth.AuthService;
+import com.atrum.agrum.collectionPoint.CollectionPoint;
+import com.atrum.agrum.collectionPoint.CollectionPointRepository;
 import com.atrum.agrum.employee.dto.CreateEmployeeRequest;
 import com.atrum.agrum.employee.dto.EmployeeDto;
 import com.atrum.agrum.employee.dto.UpdateEmployeeRequest;
@@ -29,6 +31,7 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final EstateRepository estateRepository;
+    private final CollectionPointRepository collectionPointRepository;
     private final PermissionSetRepository permissionSetRepository;
     private final EstateMapper estateMapper;
     private final EmployeeMapper employeeMapper;
@@ -46,7 +49,7 @@ public class EmployeeService {
         }
 
         Employee employee = employeeMapper.fromCreateRequest(request);
-        applyEstates(employee, request.defaultEstateId(), request.homeEstateId());
+        applyEstates(employee, request.defaultEstateId(), request.defaultCollectionPointCode(), request.homeEstateId());
         Employee savedEmployee = employeeRepository.save(employee);
 
         if (request.isUserAccount()) {
@@ -81,7 +84,7 @@ public class EmployeeService {
     public EmployeeDto update(String employeeCode, UpdateEmployeeRequest request) {
         Employee employee = getEmployee(employeeCode);
         employeeMapper.updateEmployee(request, employee);
-        applyEstates(employee, request.defaultEstateId(), request.homeEstateId());
+        applyEstates(employee, request.defaultEstateId(), request.defaultCollectionPointCode(), request.homeEstateId());
         return employeeMapper.toDto(employeeRepository.save(employee));
     }
 
@@ -113,9 +116,29 @@ public class EmployeeService {
                         "Employee not found: " + employeeCode));
     }
 
-    private void applyEstates(Employee employee, String defaultEstateId, String homeEstateId) {
-        employee.setDefaultEstate(findEstate(defaultEstateId));
+    private void applyEstates(Employee employee, String defaultEstateId, String defaultCollectionPointCode,
+                              String homeEstateId) {
+        Estate defaultEstate = findEstate(defaultEstateId);
+        employee.setDefaultEstate(defaultEstate);
+        employee.setDefaultCollectionPoint(findDefaultCollectionPoint(defaultEstate, defaultCollectionPointCode));
         employee.setHomeEstate(findEstate(homeEstateId));
+    }
+
+    // findById is not estate-filtered, so an existing value still saves for users without that site
+    private CollectionPoint findDefaultCollectionPoint(Estate defaultEstate, String cpCode) {
+        if (!StringUtils.hasText(cpCode)) {
+            return null;
+        }
+        if (defaultEstate == null) {
+            throw new IllegalArgumentException("Select a default site before choosing a default collection point");
+        }
+        CollectionPoint collectionPoint = collectionPointRepository.findById(cpCode)
+                .orElseThrow(() -> new IllegalArgumentException("Collection point not found: " + cpCode));
+        if (!defaultEstate.getId().equals(collectionPoint.getEstateId())) {
+            throw new IllegalArgumentException(
+                    "Collection point " + cpCode + " does not belong to site " + defaultEstate.getId());
+        }
+        return collectionPoint;
     }
 
     private Estate findEstate(String estateId) {
