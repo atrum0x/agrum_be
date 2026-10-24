@@ -1,5 +1,6 @@
 package com.atrum.agrum.employee;
 
+import com.atrum.agrum.attendance.AttendanceCategory;
 import com.atrum.agrum.auth.AuthService;
 import com.atrum.agrum.collectionPoint.CollectionPoint;
 import com.atrum.agrum.collectionPoint.CollectionPointRepository;
@@ -47,6 +48,7 @@ public class EmployeeService {
         if (request.isUserAccount() && (request.password() == null || request.password().isBlank())) {
             throw new IllegalArgumentException("Password is required when creating a user account");
         }
+        requireCategory(request.employeeCategory());
 
         Employee employee = employeeMapper.fromCreateRequest(request);
         applyEstates(employee, request.defaultEstateId(), request.defaultCollectionPointCode(), request.homeEstateId());
@@ -82,10 +84,17 @@ public class EmployeeService {
 
     @Transactional
     public EmployeeDto update(String employeeCode, UpdateEmployeeRequest request) {
+        requireCategory(request.employeeCategory());
         Employee employee = getEmployee(employeeCode);
+        boolean wasActive = employee.getEmploymentStatus() == EmploymentStatus.ACTIVE;
         employeeMapper.updateEmployee(request, employee);
         applyEstates(employee, request.defaultEstateId(), request.defaultCollectionPointCode(), request.homeEstateId());
-        return employeeMapper.toDto(employeeRepository.save(employee));
+        Employee saved = employeeRepository.save(employee);
+        // LG-04: an inactive employee cannot log in, so end their current sessions too
+        if (wasActive && saved.getEmploymentStatus() != EmploymentStatus.ACTIVE && saved.getUserAccount() != null) {
+            authService.revokeSessions(saved.getUserAccount().getUsername());
+        }
+        return employeeMapper.toDto(saved);
     }
 
     @Transactional
@@ -107,7 +116,18 @@ public class EmployeeService {
             throw new IllegalStateException(
                     "Employee has a user account and cannot be deleted: " + employeeCode);
         }
+        // Setup records are made Inactive, not deleted (FSD 1.9); delete is only for one entered by mistake
+        if (employeeRepository.hasAttendance(employeeCode)) {
+            throw new IllegalArgumentException(
+                    "Employee has attendance records and cannot be deleted. Set the status to Inactive instead.");
+        }
         employeeRepository.delete(employee);
+    }
+
+    private static void requireCategory(AttendanceCategory category) {
+        if (category == null) {
+            throw new IllegalArgumentException("Please select the Employment Category");
+        }
     }
 
     private Employee getEmployee(String employeeCode) {

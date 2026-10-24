@@ -1,5 +1,6 @@
 package com.atrum.agrum.employee.dto;
 
+import com.atrum.agrum.attendance.AttendanceCategory;
 import com.atrum.agrum.employee.EmploymentStatus;
 
 import java.time.LocalDate;
@@ -12,15 +13,13 @@ public record EmployeeDto(
         String phoneNumber,
         String bankAccountNumber,
         String designation,
-        String employeeCategory,
+        AttendanceCategory employeeCategory,
         EmploymentStatus employmentStatus,
         LocalDate startDate,
         LocalDate endDate,
         String defaultEstateId,
         String defaultCollectionPointCode,
         String homeEstateId,
-        String division,
-        String field,
         boolean hasUserAccount
 ) {
 }

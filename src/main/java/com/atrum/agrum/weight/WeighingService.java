@@ -3,6 +3,8 @@ package com.atrum.agrum.weight;
 import com.atrum.agrum.attendance.Attendance;
 import com.atrum.agrum.attendance.AttendanceRepository;
 import com.atrum.agrum.estate.Estate;
+import com.atrum.agrum.exception.InsufficientPermissionException;
+import com.atrum.agrum.security.PermissionChecker;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.UserService;
 import com.atrum.agrum.weight.dto.RecordWeightRequest;
@@ -41,6 +43,7 @@ public class WeighingService {
     private final WeightRecordRepository weightRecordRepository;
     private final AttendanceRepository attendanceRepository;
     private final UserService userService;
+    private final PermissionChecker permissionChecker;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -120,8 +123,11 @@ public class WeighingService {
         if (request.entryType() == null) {
             throw new IllegalArgumentException(WeightMessages.ENTRY_TYPE);
         }
-        // TODO(decision CL-03) WE-08: the spec has not decided who may enter a weight manually
-        //  (WeightMessages.WE_08_NO_MANUAL). Until then anyone who can record weights may.
+        // WE-08 (CL-03): manual entry is the right to call the manual endpoint, also for phone sync
+        if (request.entryType() == EntryType.MANUAL
+                && !permissionChecker.isCurrentUserGranted("POST", WeighingController.MANUAL_PATH)) {
+            throw new InsufficientPermissionException(WeightMessages.WE_08_NO_MANUAL);
+        }
 
         // WE-02: today's attendance for this worker, at a site the user can see. Locked so two
         // phones sending the worker's last allowed weighing are counted one after the other (WE-04)

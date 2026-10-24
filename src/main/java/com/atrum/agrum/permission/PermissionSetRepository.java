@@ -34,6 +34,17 @@ public interface PermissionSetRepository extends JpaRepository<PermissionSet, St
             @Param("httpMethod") String httpMethod
     );
 
+    /** Projection ids ("METHOD:/path") granted to the user, so clients can show only what they may use. */
+    @Query("""
+                SELECT DISTINCT p.id
+                FROM AppUser u
+                JOIN u.permissionSets ps
+                JOIN ps.projections p
+                WHERE u.username = :username
+                ORDER BY p.id
+            """)
+    List<String> findGrantedProjectionIdsByUsername(@Param("username") String username);
+
     List<PermissionSet> findByIdContainingIgnoreCaseOrDescriptionContainingIgnoreCase(String id, String description);
 
     @Query("""

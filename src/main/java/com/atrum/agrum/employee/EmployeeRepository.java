@@ -157,4 +157,8 @@ public interface EmployeeRepository extends JpaRepository<Employee, String> {
             @Param("date") LocalDate date,
             @Param("search") String search
     );
+
+    // Native, so the estate filter on attendance does not hide other sites' records
+    @Query(value = "SELECT EXISTS (SELECT 1 FROM attendance WHERE employee_code = :employeeCode)", nativeQuery = true)
+    boolean hasAttendance(@Param("employeeCode") String employeeCode);
 }

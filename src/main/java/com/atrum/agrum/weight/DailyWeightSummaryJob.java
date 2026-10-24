@@ -3,12 +3,16 @@ package com.atrum.agrum.weight;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.TreeSet;
@@ -18,7 +22,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * The 10 pm Daily Weight Summary run (D-23). Recalculates today and every earlier date where,
  * since the last successful run, a weighing arrived, a change was approved / disapproved,
  * or an attendance was corrected. Data arriving after the run is picked up the next night.
- * On failure it logs, records the error and retries hourly (proposed).
+ * On failure it logs, records the error and retries hourly (proposed). The hourly check and a
+ * startup check also catch up a 22:00 run that was missed because the app was down or asleep.
  * Runs without a logged-in user, so the estate filter is off and every site is included.
  */
 @Component
@@ -27,6 +32,7 @@ public class DailyWeightSummaryJob {
 
     private static final Logger log = LoggerFactory.getLogger(DailyWeightSummaryJob.class);
     private static final Instant NEVER = Instant.EPOCH;
+    private static final LocalTime RUN_TIME = LocalTime.of(22, 0);
 
     private final DailyWeightSummaryService dailyWeightSummaryService;
     private final DailyWeightSummaryRepository dailyWeightSummaryRepository;
@@ -43,12 +49,33 @@ public class DailyWeightSummaryJob {
 
     @Scheduled(cron = "0 0 * * * *", zone = "${agrum.time-zone:Asia/Colombo}")
     public void retryIfFailed() {
-        boolean lastRunFailed = jobRunStateRepository.findById(DailyWeightSummaryService.JOB_NAME)
-                .map(state -> state.getLastError() != null)
-                .orElse(false);
-        if (lastRunFailed) {
+        if (isOverdue()) {
             run();
         }
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void catchUpOnStartup() {
+        if (isOverdue()) {
+            log.info("Daily weight summary run is overdue; running now");
+            run();
+        }
+    }
+
+    // The last run failed, or no run has succeeded since the most recent 22:00
+    private boolean isOverdue() {
+        JobRunState state = jobRunStateRepository.findById(DailyWeightSummaryService.JOB_NAME).orElse(null);
+        if (state != null && state.getLastError() != null) {
+            return true;
+        }
+        Instant lastSuccess = state == null || state.getLastSuccessAt() == null ? NEVER : state.getLastSuccessAt();
+        return lastSuccess.isBefore(lastScheduledRun());
+    }
+
+    private Instant lastScheduledRun() {
+        ZonedDateTime now = ZonedDateTime.now(clock);
+        ZonedDateTime todayRun = now.with(RUN_TIME);
+        return (now.isBefore(todayRun) ? todayRun.minusDays(1) : todayRun).toInstant();
     }
 
     /** Returns the dates recalculated, or an empty list when a run is already in progress. */

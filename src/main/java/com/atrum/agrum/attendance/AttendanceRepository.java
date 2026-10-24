@@ -83,4 +83,7 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
                             @Param("cpCode") String cpCode,
                             @Param("workType") String workType,
                             @Param("recordedBy") String recordedBy);
+
+    // JPQL, so the estate filter limits it to the user's sites (Dashboard, FSD 2.2)
+    long countByAttendanceDate(LocalDate attendanceDate);
 }

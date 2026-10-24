@@ -22,6 +22,9 @@ import java.util.List;
 @RequiredArgsConstructor
 public class WeighingController {
 
+    // Granting this endpoint is what permits manual entry (WE-08, CL-03)
+    public static final String MANUAL_PATH = "/api/weights/manual";
+
     private final WeighingService weighingService;
     private final WeightSyncService weightSyncService;
 
@@ -40,6 +43,15 @@ public class WeighingController {
     @PostMapping
     public ResponseEntity<WeightRecordDto> recordWeight(@RequestBody RecordWeightRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(weighingService.recordWeight(request));
+    }
+
+    /**
+     * Phone, online: one weighing typed in because there is no scale reading (WE-08).
+     * Only users granted this endpoint may enter weights manually, here or through /sync.
+     */
+    @PostMapping("/manual")
+    public ResponseEntity<WeightRecordDto> recordManualWeight(@RequestBody RecordWeightRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(weighingService.recordWeight(request.asManual()));
     }
 
     /** Phone: weighings saved offline; each one is Sent or Rejected on its own. */

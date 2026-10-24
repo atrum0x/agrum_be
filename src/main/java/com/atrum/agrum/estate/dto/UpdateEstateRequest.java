@@ -1,11 +1,13 @@
 package com.atrum.agrum.estate.dto;
 
+import java.math.BigDecimal;
+
 public record UpdateEstateRequest(
         String name,
         String address,
         Boolean active,
-        Integer fullDayQtyKg,
-        Integer halfDayQtyKg,
+        BigDecimal fullDayQtyKg,
+        BigDecimal halfDayQtyKg,
         Integer maxDailyTransactions,
-        Float variancePercent
+        BigDecimal variancePercent
 ) {}

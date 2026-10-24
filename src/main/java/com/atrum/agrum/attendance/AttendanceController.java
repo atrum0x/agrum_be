@@ -25,6 +25,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AttendanceController {
 
+    public static final String OTHER_SITE_PATH = "/api/attendance/other-site";
+
     private final AttendanceService attendanceService;
     private final AttendanceSyncService attendanceSyncService;
 
@@ -55,6 +57,15 @@ public class AttendanceController {
     /** Web: one batch, saved all-or-nothing. */
     @PostMapping
     public ResponseEntity<List<AttendanceDto>> recordAttendance(@RequestBody RecordAttendanceRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(attendanceService.recordAttendance(request));
+    }
+
+    /**
+     * Web: a batch that includes workers whose default site is not the working site (AT-06).
+     * Granting this endpoint is what permits that, here and through /sync (CL-03).
+     */
+    @PostMapping("/other-site")
+    public ResponseEntity<List<AttendanceDto>> recordOtherSiteAttendance(@RequestBody RecordAttendanceRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(attendanceService.recordAttendance(request));
     }
 
