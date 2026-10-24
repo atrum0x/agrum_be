@@ -1,5 +1,6 @@
 package com.atrum.agrum.auth;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -11,9 +12,22 @@ import com.atrum.agrum.auth.AuthDto.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final boolean cookieSecure;
+    private final String cookieSameSite;
+    private final String cookieDomain;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService,
+                          @Value("${app.cookie.secure}") boolean cookieSecure,
+                          @Value("${app.cookie.same-site}") String cookieSameSite,
+                          @Value("${app.cookie.domain}") String cookieDomain) {
+        // Browsers silently drop SameSite=None cookies that are not Secure, so fail fast instead
+        if ("None".equalsIgnoreCase(cookieSameSite) && !cookieSecure) {
+            throw new IllegalStateException("COOKIE_SAME_SITE=None requires COOKIE_SECURE=true");
+        }
         this.authService = authService;
+        this.cookieSecure = cookieSecure;
+        this.cookieSameSite = cookieSameSite;
+        this.cookieDomain = cookieDomain;
     }
 
     @PostMapping("/register")
@@ -63,8 +77,9 @@ public class AuthController {
         authService.logout(request);
 
         // Overwrite the cookies with empty values and a maxAge of 0 to delete them instantly
-        ResponseCookie deleteAccess = ResponseCookie.from("access_jwt", "").maxAge(0).path("/").build();
-        ResponseCookie deleteRefresh = ResponseCookie.from("refresh_jwt", "").maxAge(0).path("/").build();
+        // Attributes must match the original cookies or the browser will not delete them
+        ResponseCookie deleteAccess = authCookie("access_jwt", "", 0);
+        ResponseCookie deleteRefresh = authCookie("refresh_jwt", "", 0);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, deleteAccess.toString())
@@ -89,25 +104,25 @@ public class AuthController {
     }
 
     private ResponseEntity<?> buildCookieResponse(String accessToken, String refreshToken, String message) {
-        ResponseCookie accessCookie = ResponseCookie.from("access_jwt", accessToken)
-                .httpOnly(true)
-                .secure(false) // TODO: Set to true in production with HTTPS
-                .path("/")
-                .maxAge(15 * 60) // 15 minutes
-                .sameSite("Lax")
-                .build();
-
-        ResponseCookie refreshCookie = ResponseCookie.from("refresh_jwt", refreshToken)
-                .httpOnly(true)
-                .secure(false) // TODO: Set to true in production
-                .path("/")
-                .maxAge(60 * 24 * 60 * 60) // 60 days
-                .sameSite("Lax")
-                .build();
+        ResponseCookie accessCookie = authCookie("access_jwt", accessToken, 15 * 60); // 15 minutes
+        ResponseCookie refreshCookie = authCookie("refresh_jwt", refreshToken, 60 * 24 * 60 * 60); // 60 days
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                 .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
                 .body(message); // We no longer send tokens in the body!
+    }
+
+    private ResponseCookie authCookie(String name, String value, long maxAgeSeconds) {
+        ResponseCookie.ResponseCookieBuilder builder = ResponseCookie.from(name, value)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .path("/")
+                .maxAge(maxAgeSeconds)
+                .sameSite(cookieSameSite);
+        if (!cookieDomain.isBlank()) {
+            builder.domain(cookieDomain);
+        }
+        return builder.build();
     }
 }

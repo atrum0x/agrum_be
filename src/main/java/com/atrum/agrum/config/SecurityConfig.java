@@ -88,8 +88,8 @@ public class SecurityConfig {
     @Bean
     public UrlBasedCorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Update this later to your production domain
-        configuration.setAllowedOrigins(allowedOrigins);
+        // Patterns allow exact origins as well as wildcards like https://*.vercel.app
+        configuration.setAllowedOriginPatterns(allowedOrigins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         // CRITICAL: This allows cookies to be sent back and forth!
