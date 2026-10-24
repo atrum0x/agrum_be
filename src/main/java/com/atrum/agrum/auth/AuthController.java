@@ -4,8 +4,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import com.atrum.agrum.auth.AuthDto.*;
+import com.atrum.agrum.exception.InvalidCredentialsException;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -101,6 +104,16 @@ public class AuthController {
             @CookieValue(name = "access_jwt", required = false) String accessToken) {
         CurrentUserProfileResponse profile = authService.getCurrentUserProfile(accessToken);
         return ResponseEntity.ok(profile);
+    }
+
+    // The Bearer token is read by JwtAuthenticationFilter, as for every other call
+    @GetMapping("/me/mobile")
+    public ResponseEntity<CurrentUserProfileResponse> getCurrentUserMobile() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            throw new InvalidCredentialsException("No access token provided.");
+        }
+        return ResponseEntity.ok(authService.getCurrentUserProfileByUsername(auth.getName()));
     }
 
     private ResponseEntity<?> buildCookieResponse(String accessToken, String refreshToken, String message) {

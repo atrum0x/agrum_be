@@ -27,8 +27,8 @@ public interface DailyWeightSummaryRepository extends JpaRepository<DailyWeightS
         String getAttendanceCategory();
         Long getTransactionCount();
         BigDecimal getDailyTotalKg();
-        Integer getFullDayQtyKg();
-        Integer getHalfDayQtyKg();
+        BigDecimal getFullDayQtyKg();
+        BigDecimal getHalfDayQtyKg();
     }
 
     // Native: the job has no logged-in user and must see every site

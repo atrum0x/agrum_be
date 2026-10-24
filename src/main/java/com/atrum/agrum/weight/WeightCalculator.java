@@ -13,15 +13,11 @@ public final class WeightCalculator {
 
     private WeightCalculator() {}
 
-    /**
-     * Estate.variancePercent is a Float. Going through its string form keeps 2.0 as 2.00;
-     * BigDecimal.valueOf(double) of the float would give 2.0000000476...
-     */
-    public static BigDecimal variance(Float percent) {
+    public static BigDecimal variance(BigDecimal percent) {
         if (percent == null) {
             return BigDecimal.ZERO.setScale(SCALE);
         }
-        return new BigDecimal(Float.toString(percent)).setScale(SCALE, RoundingMode.HALF_UP);
+        return percent.setScale(SCALE, RoundingMode.HALF_UP);
     }
 
     /**
@@ -43,13 +39,13 @@ public final class WeightCalculator {
      * Half / Full Day and overweight (3.3) from the estate standards at run time (D-05).
      * total >= full: Full Day, overweight = total - full; otherwise Half Day, overweight = max(0, total - half).
      */
-    public static DayResult classify(BigDecimal dailyTotalKg, Integer fullDayQtyKg, Integer halfDayQtyKg) {
+    public static DayResult classify(BigDecimal dailyTotalKg, BigDecimal fullDayQtyKg, BigDecimal halfDayQtyKg) {
         BigDecimal total = dailyTotalKg.setScale(SCALE, RoundingMode.HALF_UP);
-        BigDecimal full = BigDecimal.valueOf(fullDayQtyKg);
+        BigDecimal full = fullDayQtyKg.setScale(SCALE, RoundingMode.HALF_UP);
         if (total.compareTo(full) >= 0) {
             return new DayResult(DayClassification.FULL_DAY, total.subtract(full));
         }
-        BigDecimal overHalf = total.subtract(BigDecimal.valueOf(halfDayQtyKg));
+        BigDecimal overHalf = total.subtract(halfDayQtyKg.setScale(SCALE, RoundingMode.HALF_UP));
         return new DayResult(DayClassification.HALF_DAY,
                 overHalf.signum() > 0 ? overHalf : BigDecimal.ZERO.setScale(SCALE));
     }

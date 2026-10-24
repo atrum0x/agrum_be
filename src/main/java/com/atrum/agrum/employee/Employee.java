@@ -1,5 +1,6 @@
 package com.atrum.agrum.employee;
 
+import com.atrum.agrum.attendance.AttendanceCategory;
 import com.atrum.agrum.collectionPoint.CollectionPoint;
 import com.atrum.agrum.estate.Estate;
 import jakarta.persistence.*;
@@ -61,8 +62,10 @@ public class Employee {
     @Column(name = "designation", nullable = true, length = 50)
     private String designation;
 
-    @Column(name = "employee_category", nullable = false)
-    private String employeeCategory;
+    // Employment Category; the default Attendance Category (FSD 2.4, 2.6)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "employee_category", nullable = false, length = 10)
+    private AttendanceCategory employeeCategory;
 
     @Column(name = "employment_status", nullable = false, length = 30)
     private EmploymentStatus employmentStatus = EmploymentStatus.ACTIVE;
@@ -95,12 +98,6 @@ public class Employee {
 
     @OneToOne(mappedBy = "employee", fetch = FetchType.LAZY)
     private AppUser userAccount;
-
-    @Column(name  = "division")
-    private String division;
-
-    @Column(name = "field")
-    private String field;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

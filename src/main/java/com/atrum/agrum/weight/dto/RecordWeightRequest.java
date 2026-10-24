@@ -23,4 +23,9 @@ public record RecordWeightRequest(
         BigDecimal variancePercent,
         // The phone's guess; the server assigns the final number (WE-10)
         Integer provisionalSequence
-) {}
+) {
+    public RecordWeightRequest asManual() {
+        return new RecordWeightRequest(weightId, attendanceId, employeeCode, weighedAt, weightKg,
+                EntryType.MANUAL, variancePercent, provisionalSequence);
+    }
+}

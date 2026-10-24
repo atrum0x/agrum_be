@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.HashSet;
 import java.util.List;
 import java.util.function.BiConsumer;
@@ -126,8 +128,8 @@ public class EstateService {
     }
 
     // These columns are NOT NULL, so reject missing values with a 400 instead of a DB error
-    private void applyFields(Estate estate, String name, String address, Boolean active, Integer fullDayQtyKg,
-                             Integer halfDayQtyKg, Integer maxDailyTransactions, Float variancePercent) {
+    private void applyFields(Estate estate, String name, String address, Boolean active, BigDecimal fullDayQtyKg,
+                             BigDecimal halfDayQtyKg, Integer maxDailyTransactions, BigDecimal variancePercent) {
         if (!StringUtils.hasText(name)) {
             throw new IllegalArgumentException("Name is required");
         }
@@ -135,13 +137,23 @@ public class EstateService {
             throw new IllegalArgumentException(
                     "Full day qty, half day qty, max daily transactions and variance % are required");
         }
+        if (fullDayQtyKg.signum() <= 0 || halfDayQtyKg.signum() <= 0) {
+            throw new IllegalArgumentException("Full day and half day quantities must be greater than 0");
+        }
+        if (halfDayQtyKg.compareTo(fullDayQtyKg) > 0) {
+            throw new IllegalArgumentException("Half day quantity cannot be more than the full day quantity");
+        }
+        if (maxDailyTransactions < 1) {
+            throw new IllegalArgumentException("Max daily transactions must be at least 1");
+        }
         estate.setName(name.trim());
         estate.setAddress(StringUtils.hasText(address) ? address.trim() : null);
         estate.setActive(active == null || active);
-        estate.setFullDayQtyKg(fullDayQtyKg);
-        estate.setHalfDayQtyKg(halfDayQtyKg);
+        // kg and % are kept to 2 decimals (FSD 1.9)
+        estate.setFullDayQtyKg(fullDayQtyKg.setScale(2, RoundingMode.HALF_UP));
+        estate.setHalfDayQtyKg(halfDayQtyKg.setScale(2, RoundingMode.HALF_UP));
         estate.setMaxDailyTransactions(maxDailyTransactions);
-        estate.setVariancePercent(variancePercent);
+        estate.setVariancePercent(variancePercent.setScale(2, RoundingMode.HALF_UP));
     }
 
     // List all Estates for Admin management

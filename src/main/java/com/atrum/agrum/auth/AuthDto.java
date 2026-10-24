@@ -3,6 +3,8 @@ package com.atrum.agrum.auth;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.List;
+
 public class AuthDto {
 
     @Setter
@@ -41,12 +43,25 @@ public class AuthDto {
         }
     }
 
+    /**
+     * The logged-in user and what they are granted, so the web menu and the phone's Mobile Home show
+     * only the windows and buttons the user may use (DB-01, LG-05). The server still checks every call.
+     * permissions are projection ids such as "GET:/api/weights/mine"; the superuser gets an empty
+     * list with superuser = true.
+     */
     @Getter
     public static class CurrentUserProfileResponse {
-        private String username;
-        public CurrentUserProfileResponse(String username) {
-            this.username = username;
-        }
+        private final String username;
+        private final String employeeName;
+        private final boolean superuser;
+        private final List<String> permissions;
 
+        public CurrentUserProfileResponse(String username, String employeeName, boolean superuser,
+                                          List<String> permissions) {
+            this.username = username;
+            this.employeeName = employeeName;
+            this.superuser = superuser;
+            this.permissions = permissions;
+        }
     }
 }

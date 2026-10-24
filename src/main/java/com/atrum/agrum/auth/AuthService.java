@@ -1,10 +1,14 @@
 package com.atrum.agrum.auth;
 
+import com.atrum.agrum.employee.Employee;
+import com.atrum.agrum.employee.EmploymentStatus;
 import com.atrum.agrum.exception.InvalidCredentialsException;
 import com.atrum.agrum.exception.ResourceNotFoundException;
 import com.atrum.agrum.security.JwtTokenProvider;
+import com.atrum.agrum.security.PermissionChecker;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.AppUserRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -25,17 +29,23 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final StringRedisTemplate redisTemplate;
+    private final PermissionChecker permissionChecker;
+
+    @Value("${SUPERUSER_USERNAME}")
+    private String superUsername;
 
     public AuthService(AppUserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenProvider tokenProvider,
-                       StringRedisTemplate redisTemplate) {
+                       StringRedisTemplate redisTemplate,
+                       PermissionChecker permissionChecker) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
         this.redisTemplate = redisTemplate;
+        this.permissionChecker = permissionChecker;
     }
 
     public void register(RegisterRequest request) {
@@ -52,11 +62,12 @@ public class AuthService {
 
     public TokenResponse login(LoginRequest request) {
         AppUser user = userRepository.findById(request.getUsername())
-                .orElseThrow(() -> new InvalidCredentialsException("Invalid credentials"));
+                .orElseThrow(() -> new InvalidCredentialsException("Username or password is incorrect."));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            throw new InvalidCredentialsException("Invalid credentials");
+            throw new InvalidCredentialsException("Username or password is incorrect.");
         }
+        checkCanLogIn(user);
         List<String> estateIds = user.getAllowedEstates().stream()
                 .map(Estate::getId)
                 .toList();
@@ -100,6 +111,8 @@ public class AuthService {
         }
         AppUser user = userRepository.findById(username)
                 .orElseThrow(() -> new InvalidCredentialsException("User not found"));
+        // An employee made inactive after login loses access at the next refresh
+        checkCanLogIn(user);
 
         List<String> estateIds = user.getAllowedEstates().stream()
                 .map(Estate::getId)
@@ -122,6 +135,24 @@ public class AuthService {
         saveRefreshToken(username, newRefreshToken);
 
         return new AuthDto.TokenResponse(newAccessToken, newRefreshToken);
+    }
+
+    /**
+     * LG-04: the employee behind the login must be Active. LG-05: the user must be granted at least
+     * one permission set. The superuser has neither an employee nor grants and is always allowed.
+     */
+    private void checkCanLogIn(AppUser user) {
+        if (user.getUsername().equals(superUsername)) {
+            return;
+        }
+        Employee employee = user.getEmployee();
+        if (employee != null && employee.getEmploymentStatus() != EmploymentStatus.ACTIVE) {
+            throw new InvalidCredentialsException("Your account is not active. Please contact the administrator.");
+        }
+        if (user.getPermissionSets().isEmpty()) {
+            throw new InvalidCredentialsException(
+                    "You do not have access to this application. Please contact the administrator.");
+        }
     }
 
     public void logout(LogoutRequest request) {
@@ -170,9 +201,18 @@ public class AuthService {
         // Extract username using your existing token provider
         String username = tokenProvider.getUsernameFromJWT(accessToken); // Or whatever method your tokenProvider uses
 
+        return getCurrentUserProfileByUsername(username);
+    }
+
+    public CurrentUserProfileResponse getCurrentUserProfileByUsername(String username) {
         AppUser user = userRepository.findById(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Employee employee = user.getEmployee();
 
-        return new CurrentUserProfileResponse(user.getUsername());
+        return new CurrentUserProfileResponse(
+                user.getUsername(),
+                employee == null ? null : employee.getFullName(),
+                permissionChecker.isSuperuser(username),
+                permissionChecker.grantedProjectionIds(username));
     }
 }

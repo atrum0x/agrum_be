@@ -3,6 +3,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Setter
 @Getter
 @Entity
@@ -22,17 +24,17 @@ public class Estate {
     @Column(name = "active", nullable = false)
     private Boolean active = true;
 
-    @Column(name = "full_day_qty_kg", nullable = false)
-    private Integer fullDayQtyKg;
+    @Column(name = "full_day_qty_kg", nullable = false, precision = 10, scale = 2)
+    private BigDecimal fullDayQtyKg;
 
-    @Column(name = "half_day_qty_kg", nullable = false)
-    private Integer halfDayQtyKg;
+    @Column(name = "half_day_qty_kg", nullable = false, precision = 10, scale = 2)
+    private BigDecimal halfDayQtyKg;
 
     @Column(name = "max_daily_transactions", nullable = false)
     private Integer maxDailyTransactions;
 
-    @Column(name = "variance_percent", nullable = false)
-    private Float variancePercent;
+    @Column(name = "variance_percent", nullable = false, precision = 6, scale = 2)
+    private BigDecimal variancePercent;
 
     public Estate() {}
 

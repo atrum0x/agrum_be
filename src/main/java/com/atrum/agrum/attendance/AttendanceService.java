@@ -19,6 +19,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.atrum.agrum.security.PermissionChecker;
+import com.atrum.agrum.exception.InsufficientPermissionException;
 import org.springframework.util.StringUtils;
 
 import java.time.Clock;
@@ -29,7 +31,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -50,6 +51,7 @@ public class AttendanceService {
     private final EmployeeRepository employeeRepository;
     private final AttendanceSiteValidator siteValidator;
     private final UserService userService;
+    private final PermissionChecker permissionChecker;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -78,7 +80,7 @@ public class AttendanceService {
                         idOf(employee.getHomeEstate()),
                         employee.getDefaultCollectionPoint() == null
                                 ? null : employee.getDefaultCollectionPoint().getCpCode(),
-                        defaultCategory(employee)))
+                        employee.getEmployeeCategory()))
                 .toList();
     }
 
@@ -210,9 +212,14 @@ public class AttendanceService {
         if (category == null) {
             throw new IllegalArgumentException(worker + ": " + AttendanceMessages.AT_08_CATEGORY);
         }
-        // TODO(decision CL-03) AT-06: the spec has not decided who may record a worker at a site other
-        //  than their default site (AttendanceMessages.otherSite). Until then anyone who can record may.
         String estateId = site.estate().getId();
+        // AT-06 (CL-03): a worker away from their default site needs the other-site endpoint granted,
+        // also for phone sync. Workers without a default site are not restricted
+        Estate defaultEstate = employee.getDefaultEstate();
+        if (defaultEstate != null && !defaultEstate.getId().equals(estateId)
+                && !permissionChecker.isCurrentUserGranted("POST", AttendanceController.OTHER_SITE_PATH)) {
+            throw new InsufficientPermissionException(AttendanceMessages.otherSite(worker));
+        }
 
         Attendance attendance = new Attendance();
         attendance.setAttendanceId(attendanceId);
@@ -252,18 +259,6 @@ public class AttendanceService {
             }
         }
         return lastCorrections;
-    }
-
-    // TODO(decision): Employee.employeeCategory is free text; switch to AttendanceCategory if it becomes an enum
-    private static AttendanceCategory defaultCategory(Employee employee) {
-        if (!StringUtils.hasText(employee.getEmployeeCategory())) {
-            return null;
-        }
-        try {
-            return AttendanceCategory.valueOf(employee.getEmployeeCategory().trim().toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
     }
 
     private static String workerLabel(String employeeCode, Employee employee) {

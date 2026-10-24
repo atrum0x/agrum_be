@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
@@ -143,4 +144,18 @@ public interface WeightRecordRepository extends JpaRepository<WeightRecord, UUID
                               @Param("lineStates") Collection<LineState> lineStates,
                               @Param("approvalStatuses") Collection<ApprovalStatus> approvalStatuses,
                               Pageable pageable);
+
+    interface DayTotals {
+        long getWeighings();
+        BigDecimal getTotalKg();
+    }
+
+    // JPQL, so the estate filter limits it to the user's sites; cancelled weighings excluded (Dashboard, FSD 2.2)
+    @Query("""
+            SELECT COUNT(w) AS weighings, COALESCE(SUM(w.weightAfterVariance), 0) AS totalKg
+            FROM WeightRecord w
+            WHERE w.weighDate = :date AND w.lineState = com.atrum.agrum.weight.LineState.RECORDED
+              AND (:employeeCode = '' OR w.employee.employeeCode = :employeeCode)
+            """)
+    DayTotals totalsOn(@Param("date") LocalDate date, @Param("employeeCode") String employeeCode);
 }
