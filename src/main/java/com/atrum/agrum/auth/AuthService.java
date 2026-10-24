@@ -48,18 +48,6 @@ public class AuthService {
         this.permissionChecker = permissionChecker;
     }
 
-    public void register(RegisterRequest request) {
-        if (userRepository.existsById(request.getUsername())) {
-            throw new IllegalArgumentException("Username is already taken!");
-        }
-
-        AppUser user = new AppUser();
-        user.setUsername(request.getUsername());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-
-        userRepository.save(user);
-    }
-
     public TokenResponse login(LoginRequest request) {
         AppUser user = userRepository.findById(request.getUsername())
                 .orElseThrow(() -> new InvalidCredentialsException("Username or password is incorrect."));

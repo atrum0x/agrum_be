@@ -34,8 +34,13 @@ public class Projection {
     @Column(name = "url_path", nullable = false)
     private String urlPath;
 
-    @Column(name = "description")
+    // Plain-language summary for administrators, from the endpoint's @Operation summary
+    @Column(name = "description", length = 300)
     private String description;
+
+    // The window the endpoint belongs to, from the controller's @ProjectionGroup
+    @Column(name = "group_name", length = 100)
+    private String groupName;
 
     @ManyToMany(mappedBy = "projections")
     @JsonIgnoreProperties("projections")

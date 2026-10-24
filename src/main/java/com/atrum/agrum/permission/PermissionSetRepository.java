@@ -57,6 +57,7 @@ public interface PermissionSetRepository extends JpaRepository<PermissionSet, St
                     :search = ''
                     OR LOWER(p.id) LIKE LOWER(CONCAT('%', :search, '%'))
                     OR LOWER(p.description) LIKE LOWER(CONCAT('%', :search, '%'))
+                    OR LOWER(p.groupName) LIKE LOWER(CONCAT('%', :search, '%'))
                 )
             """)
     Page<Projection> findUnassignedProjections(
@@ -73,6 +74,7 @@ public interface PermissionSetRepository extends JpaRepository<PermissionSet, St
                     :search = ''
                     OR LOWER(p.id) LIKE LOWER(CONCAT('%', :search, '%'))
                     OR LOWER(p.description) LIKE LOWER(CONCAT('%', :search, '%'))
+                    OR LOWER(p.groupName) LIKE LOWER(CONCAT('%', :search, '%'))
                 )
             """)
     Page<Projection> findGrantedProjections(
