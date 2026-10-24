@@ -1,6 +1,8 @@
 package com.atrum.agrum.attendance;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -28,6 +30,31 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
     // JPQL, so the estate filter limits this to the user's visible sites
     @Query("SELECT a FROM Attendance a WHERE a.attendanceId = :attendanceId")
     Optional<Attendance> findVisibleById(@Param("attendanceId") UUID attendanceId);
+
+    // Locked while a weighing is saved, so two phones can't both take the last slot (WE-04)
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM Attendance a WHERE a.attendanceId = :attendanceId")
+    Optional<Attendance> findVisibleByIdForUpdate(@Param("attendanceId") UUID attendanceId);
+
+    // Weighing worker picker: attendance on the date, weighing-required work type, active site (WE-02, WE-03, WE-05)
+    @Query("""
+            SELECT a FROM Attendance a
+            JOIN FETCH a.employee e
+            JOIN FETCH a.estate est
+            JOIN FETCH a.workType wt
+            JOIN FETCH a.collectionPoint
+            WHERE a.attendanceDate = :date
+              AND wt.weighingRequired = TRUE
+              AND est.active = TRUE
+              AND (
+                  :employee = ''
+                  OR LOWER(e.employeeCode) LIKE LOWER(CONCAT('%', :employee, '%'))
+                  OR LOWER(e.firstName) LIKE LOWER(CONCAT('%', :employee, '%'))
+                  OR LOWER(e.lastName) LIKE LOWER(CONCAT('%', :employee, '%'))
+              )
+            ORDER BY e.employeeCode
+            """)
+    List<Attendance> findWeighable(@Param("date") LocalDate date, @Param("employee") String employee);
 
     @Query("""
             SELECT a FROM Attendance a
