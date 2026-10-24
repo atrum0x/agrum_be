@@ -49,27 +49,12 @@ class SchemaUpgrades {
             jdbcTemplate.execute("DROP TABLE divisions");
             log.info("Schema upgrade: dropped table divisions");
         }
-        removeProjections("%:/api/divisions%");
     }
 
     private void dropColumn(String table, String column) {
         if (columnType(table, column) != null) {
             jdbcTemplate.execute("ALTER TABLE " + table + " DROP COLUMN " + column);
             log.info("Schema upgrade: dropped {}.{}", table, column);
-        }
-    }
-
-    // Projections of removed endpoints, and their grants in permission sets
-    private void removeProjections(String idPattern) {
-        if (!tableExists("projections")) {
-            return;
-        }
-        if (tableExists("permission_set_grants")) {
-            jdbcTemplate.update("DELETE FROM permission_set_grants WHERE projection_id LIKE ?", idPattern);
-        }
-        int removed = jdbcTemplate.update("DELETE FROM projections WHERE projection_id LIKE ?", idPattern);
-        if (removed > 0) {
-            log.info("Schema upgrade: removed {} projections matching {}", removed, idPattern);
         }
     }
 

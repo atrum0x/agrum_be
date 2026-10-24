@@ -1,19 +1,10 @@
 package com.atrum.agrum.auth;
 
 import lombok.Getter;
-import lombok.Setter;
 
 import java.util.List;
 
 public class AuthDto {
-
-    @Setter
-    @Getter
-    public static class RegisterRequest {
-        private String username;
-        private String password;
-
-    }
 
     @Getter
     public static class LoginRequest {

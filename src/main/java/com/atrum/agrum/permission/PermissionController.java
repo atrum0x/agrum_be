@@ -1,5 +1,7 @@
 package com.atrum.agrum.permission;
 
+import com.atrum.agrum.security.ProjectionGroup;
+import io.swagger.v3.oas.annotations.Operation;
 import com.atrum.agrum.permission.dto.CreatePermissionSetRequest;
 import com.atrum.agrum.permission.dto.PermissionSetDto;
 import com.atrum.agrum.permission.dto.UpdatePermissionSetRequest;
@@ -17,6 +19,7 @@ import org.springframework.data.domain.Page;
 
 import java.util.List;
 
+@ProjectionGroup("Authorization Basic Data")
 @RestController
 @RequestMapping("/api/permissionSet")
 public class PermissionController {
@@ -28,18 +31,21 @@ public class PermissionController {
     }
 
     //List all auto-discovered Projections
+    @Operation(summary = "List every endpoint that can be granted")
     @GetMapping("/projections")
     public ResponseEntity<List<Projection>> getAllProjections() {
         return ResponseEntity.ok(permissionService.getAllProjections());
     }
 
     //Create a new Permission Set
+    @Operation(summary = "Create a permission set")
     @PostMapping("/permission-sets")
     public ResponseEntity<PermissionSetDto> createPermissionSet(@RequestBody CreatePermissionSetRequest request) {
         return ResponseEntity.ok(permissionService.createPermissionSet(request));
     }
 
     //Update a Permission Set's description
+    @Operation(summary = "Change a permission set's description")
     @PutMapping("{permissionSetId}")
     public ResponseEntity<PermissionSetDto> updatePermissionSet(
             @PathVariable String permissionSetId,
@@ -55,6 +61,7 @@ public class PermissionController {
     }
 
     //Add a Projection to a Permission Set
+    @Operation(summary = "Add endpoints to a permission set")
     @PostMapping("{permissionSetId}/grantProjections")
     public ResponseEntity<String> grantProjectionsToPermissionSet(
             @PathVariable("permissionSetId") String permissionSetId,
@@ -64,6 +71,7 @@ public class PermissionController {
         return ResponseEntity.ok(request.getProjectionIds().size() + " projection(s) granted to Permission Set " + permissionSetId);
     }
 
+    @Operation(summary = "Remove endpoints from a permission set")
     @DeleteMapping("{permissionSetId}/revokeProjections")
     public ResponseEntity<String> revokeProjectionsFromPermissionSet(
             @PathVariable("permissionSetId") String permissionSetId,
@@ -73,6 +81,7 @@ public class PermissionController {
         return ResponseEntity.ok(request.getProjectionIds().size() + " projection(s) revoked from Permission Set " + permissionSetId);
     }
 
+    @Operation(summary = "Give a permission set to users")
     @PostMapping("{permissionSetId}/grantUsers")
     public ResponseEntity<String> grantPermissionSetToUser(
             @RequestBody List<String> usernames,
@@ -82,6 +91,7 @@ public class PermissionController {
         return ResponseEntity.ok("Permission Set " + permissionSetId + " assigned to Users");
     }
 
+    @Operation(summary = "Take a permission set away from users")
     @PostMapping("{permissionSetId}/revokeUsers")
     public ResponseEntity<String> revokePermissionSetToUser(
             @RequestBody List<String> usernames,
@@ -91,34 +101,39 @@ public class PermissionController {
         return ResponseEntity.ok("Permission Set " + permissionSetId + " revoked from Users");
     }
 
+    @Operation(summary = "View the endpoints in a permission set")
     @GetMapping("grantedProjections/{permissionSetId}")
     public ResponseEntity<Page<ProjectionDto>> getGrantedProjections(
             @PathVariable String permissionSetId,
             @RequestParam(required = false) String search,
-            @PageableDefault(size = 10, sort = "id", direction = Sort.Direction.ASC) Pageable pageable) {
+            @PageableDefault(size = 10, sort = {"groupName", "id"}, direction = Sort.Direction.ASC) Pageable pageable) {
 
         return ResponseEntity.ok(permissionService.grantedProjections(permissionSetId, search, pageable));
     }
 
+    @Operation(summary = "List endpoints not in a permission set yet")
     @GetMapping("revokedProjections/{permissionSetId}")
     public ResponseEntity<Page<ProjectionDto>> getUnassignedProjections(
             @PathVariable String permissionSetId,
             @RequestParam(required = false) String search,
-            @PageableDefault(size = 10, sort = "id", direction = Sort.Direction.ASC) Pageable pageable) {
+            @PageableDefault(size = 10, sort = {"groupName", "id"}, direction = Sort.Direction.ASC) Pageable pageable) {
 
         return ResponseEntity.ok(permissionService.getUnassignedProjections(permissionSetId, search, pageable));
     }
 
+    @Operation(summary = "List permission sets. Needed to open Permission Sets")
     @GetMapping("")
     public ResponseEntity<List<PermissionSetDto>> getAllPermissionSets(@RequestParam(required = false) String search) {
         return ResponseEntity.ok(permissionService.allPermissions(search));
     }
 
+    @Operation(summary = "View the users who have a permission set")
     @GetMapping("grantedUsers/{permissionID}")
     public ResponseEntity<List<AppUserDto>> getGrantedAppUsers(@PathVariable(required = true) String permissionID, @RequestParam(required = false) String search) {
         return ResponseEntity.ok(permissionService.getGrantedUsers(permissionID, search));
     }
 
+    @Operation(summary = "List users who do not have a permission set yet")
     @GetMapping("unassignedUsers/{permissionID}")
     public ResponseEntity<List<AppUserDto>> getUnassignedAppUsers(@PathVariable(required = true) String permissionID, @RequestParam(required = false) String search) {
         return ResponseEntity.ok(permissionService.getUnassignedUsers(permissionID, search));

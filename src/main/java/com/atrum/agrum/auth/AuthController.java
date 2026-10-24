@@ -1,5 +1,7 @@
 package com.atrum.agrum.auth;
 
+import com.atrum.agrum.security.ProjectionGroup;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import com.atrum.agrum.auth.AuthDto.*;
 import com.atrum.agrum.exception.InvalidCredentialsException;
 
+@ProjectionGroup("Login (always allowed, no grant needed)")
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
@@ -33,13 +36,8 @@ public class AuthController {
         this.cookieDomain = cookieDomain;
     }
 
-    @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
-        authService.register(request);
-        return ResponseEntity.ok("User registered successfully!");
-    }
-
     // Web Login (Cookies only, no tokens in body)
+    @Operation(summary = "Log in to the web app")
     @PostMapping("/login/web")
     public ResponseEntity<?> loginWeb(@RequestBody LoginRequest request) {
         TokenResponse response = authService.login(request);
@@ -48,6 +46,7 @@ public class AuthController {
     }
 
     // Mobile Login(Tokens in JSON body, no cookies)
+    @Operation(summary = "Log in to the mobile app")
     @PostMapping("/login/mobile")
     public ResponseEntity<TokenResponse> loginMobile(@RequestBody LoginRequest request) {
         TokenResponse response = authService.login(request);
@@ -56,6 +55,7 @@ public class AuthController {
     }
 
     // Web Refresh (Expects HttpOnly cookie, returns new HttpOnly cookies)
+    @Operation(summary = "Keep a web session alive")
     @PostMapping("/refresh/web")
     public ResponseEntity<?> refreshWeb(
             @RequestBody RefreshRequest request,
@@ -67,6 +67,7 @@ public class AuthController {
     }
 
     // Mobile Refresh (Expects token in JSON body, returns tokens in JSON body)
+    @Operation(summary = "Keep a mobile session alive")
     @PostMapping("/refresh/mobile")
     public ResponseEntity<TokenResponse> refreshMobile(@RequestBody RefreshRequest request) {
         // Note: Mobile passes the refresh token inside the JSON body, not as a cookie
@@ -75,6 +76,7 @@ public class AuthController {
     }
 
     // 1. WEB LOGOUT (Revokes session in DB + Clears Browser Cookies)
+    @Operation(summary = "Log out of the web app")
     @PostMapping("/logout/web")
     public ResponseEntity<?> logoutWeb(@RequestBody LogoutRequest request) {
         authService.logout(request);
@@ -91,6 +93,7 @@ public class AuthController {
     }
 
     // 2. MOBILE LOGOUT (Revokes session in DB only)
+    @Operation(summary = "Log out of the mobile app")
     @PostMapping("/logout/mobile")
     public ResponseEntity<?> logoutMobile(@RequestBody LogoutRequest request) {
         authService.logout(request);
@@ -99,6 +102,7 @@ public class AuthController {
         return ResponseEntity.ok("Successfully logged out from mobile.");
     }
 
+    @Operation(summary = "Current web user and what they are granted")
     @GetMapping("/me/web")
     public ResponseEntity<CurrentUserProfileResponse> getCurrentUser(
             @CookieValue(name = "access_jwt", required = false) String accessToken) {
@@ -107,6 +111,7 @@ public class AuthController {
     }
 
     // The Bearer token is read by JwtAuthenticationFilter, as for every other call
+    @Operation(summary = "Current mobile user and what they are granted")
     @GetMapping("/me/mobile")
     public ResponseEntity<CurrentUserProfileResponse> getCurrentUserMobile() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
