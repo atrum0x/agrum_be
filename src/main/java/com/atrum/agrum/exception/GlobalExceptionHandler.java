@@ -1,5 +1,6 @@
 package com.atrum.agrum.exception;
 
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -27,6 +28,14 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleForbiddenErrors(InsufficientPermissionException ex) {
         ApiErrorResponse error = new ApiErrorResponse(HttpStatus.FORBIDDEN.value(), ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
+    }
+
+    // Optimistic locking (@Version): the record changed since the user opened it (AT-18)
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ApiErrorResponse> handleOptimisticLocking(OptimisticLockingFailureException ex) {
+        ApiErrorResponse error = new ApiErrorResponse(HttpStatus.CONFLICT.value(),
+                "This record was updated by another user. Please refresh and try again.");
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
     }
 
     @ExceptionHandler(Exception.class)
