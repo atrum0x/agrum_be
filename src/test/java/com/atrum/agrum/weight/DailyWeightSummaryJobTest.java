@@ -96,10 +96,33 @@ class DailyWeightSummaryJobTest {
     }
 
     @Test
-    void hourlyCheck_doesNothingAfterASuccessfulRun() {
+    void hourlyCheck_doesNothingAfterASuccessfulRunSinceTheLast22_00() {
+        state.setLastSuccessAt(NOW);
+
         job.retryIfFailed();
+        job.catchUpOnStartup();
 
         verify(dailyWeightSummaryService, never()).rebuild(any(), any());
         verify(jobRunStateRepository, never()).save(any());
+    }
+
+    @Test
+    void hourlyCheck_catchesUpA22_00RunThatWasMissed() {
+        // Last success was yesterday's 22:00 run; today's 22:00 run did not happen (app asleep)
+        when(dailyWeightSummaryRepository.findDatesChangedSince(LAST_SUCCESS)).thenReturn(List.of());
+
+        job.retryIfFailed();
+
+        verify(dailyWeightSummaryService).rebuild(TODAY, NOW);
+        assertThat(state.getLastSuccessAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    void startup_catchesUpAMissedRun() {
+        when(dailyWeightSummaryRepository.findDatesChangedSince(LAST_SUCCESS)).thenReturn(List.of());
+
+        job.catchUpOnStartup();
+
+        verify(dailyWeightSummaryService).rebuild(TODAY, NOW);
     }
 }
