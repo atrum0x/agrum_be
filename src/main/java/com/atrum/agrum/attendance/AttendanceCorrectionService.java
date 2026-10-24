@@ -8,6 +8,7 @@ import com.atrum.agrum.attendance.dto.CorrectAttendanceRequest;
 import com.atrum.agrum.attendance.dto.DeleteAttendanceRequest;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.UserService;
+import com.atrum.agrum.weight.WeightRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
@@ -32,6 +33,7 @@ public class AttendanceCorrectionService {
     private final AttendanceRepository attendanceRepository;
     private final AttendanceCorrectionRepository attendanceCorrectionRepository;
     private final AttendanceSiteValidator siteValidator;
+    private final WeightRecordRepository weightRecordRepository;
     private final UserService userService;
     private final ObjectMapper objectMapper;
 
@@ -47,8 +49,11 @@ public class AttendanceCorrectionService {
         if (request.attendanceCategory() == null) {
             throw new IllegalArgumentException(AttendanceMessages.AT_08_CATEGORY);
         }
-        // TODO(weighings) AT-16: when weight records exist, refuse a non-weighing work type
-        //  while the attendance has non-cancelled weighings (AttendanceMessages.AT_16_WEIGHINGS_EXIST)
+        // AT-16: native count, so weighings at a site the admin can't see still count
+        if (!site.workType().isWeighingRequired()
+                && weightRecordRepository.countActiveByAttendance(attendanceId) > 0) {
+            throw new IllegalArgumentException(AttendanceMessages.AT_16_WEIGHINGS_EXIST);
+        }
 
         AttendanceSnapshot oldValues = AttendanceSnapshot.of(attendance);
         attendance.setEstateId(site.estate().getId());
@@ -62,9 +67,11 @@ public class AttendanceCorrectionService {
             throw new IllegalArgumentException("Nothing was changed.");
         }
 
-        // TODO(weighings) (Proposed): copy the site, collection point and work type to the linked
-        //  weight records in this transaction. The 10 pm summary finds the changed date via corrected_at.
         attendanceRepository.saveAndFlush(attendance);
+        // (Proposed) The weighings follow the corrected site, collection point and work type; weights
+        // and their saved variance are unchanged. The 10 pm summary finds the changed date via corrected_at.
+        weightRecordRepository.copyFromAttendance(attendanceId, newValues.estateId(),
+                newValues.cpCode(), newValues.workType());
         AttendanceCorrection correction = saveCorrection(
                 attendanceId, CorrectionAction.CORRECT, oldValues, newValues, reason, user);
         return AttendanceDto.from(attendance, correction);
@@ -77,8 +84,11 @@ public class AttendanceCorrectionService {
         Attendance attendance = findVisible(attendanceId);
         String reason = requireReason(request.reason());
         checkVersion(attendance, request.rowVersion());
-        // TODO(weighings) AT-17 (Proposed): refuse while the attendance has non-cancelled
-        //  weighings (AttendanceMessages.AT_17_CANNOT_DELETE)
+        // AT-17 (Proposed): cancelled weighings count too, since they keep their link to the
+        // attendance for the audit history
+        if (weightRecordRepository.countByAttendance(attendanceId) > 0) {
+            throw new IllegalArgumentException(AttendanceMessages.AT_17_CANNOT_DELETE);
+        }
 
         AttendanceSnapshot oldValues = AttendanceSnapshot.of(attendance);
         attendanceRepository.delete(attendance);
