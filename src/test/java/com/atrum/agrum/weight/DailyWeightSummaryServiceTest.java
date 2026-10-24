@@ -103,8 +103,8 @@ class DailyWeightSummaryServiceTest {
             public String getAttendanceCategory() { return "REGULAR"; }
             public Long getTransactionCount() { return count; }
             public BigDecimal getDailyTotalKg() { return new BigDecimal(kg); }
-            public Integer getFullDayQtyKg() { return 23; }
-            public Integer getHalfDayQtyKg() { return 12; }
+            public BigDecimal getFullDayQtyKg() { return new BigDecimal("23.00"); }
+            public BigDecimal getHalfDayQtyKg() { return new BigDecimal("12.00"); }
         };
     }
 }

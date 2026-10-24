@@ -5,6 +5,8 @@ import com.atrum.agrum.attendance.AttendanceRepository;
 import com.atrum.agrum.collectionPoint.CollectionPoint;
 import com.atrum.agrum.employee.Employee;
 import com.atrum.agrum.estate.Estate;
+import com.atrum.agrum.exception.InsufficientPermissionException;
+import com.atrum.agrum.security.PermissionChecker;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.UserService;
 import com.atrum.agrum.weight.dto.RecordWeightRequest;
@@ -52,6 +54,8 @@ class WeighingServiceTest {
     private AttendanceRepository attendanceRepository;
     @Mock
     private UserService userService;
+    @Mock
+    private PermissionChecker permissionChecker;
 
     private WeighingService weighingService;
 
@@ -62,15 +66,15 @@ class WeighingServiceTest {
     @BeforeEach
     void setUp() {
         weighingService = new WeighingService(weightRecordRepository, attendanceRepository, userService,
-                Clock.fixed(NOW, COLOMBO));
+                permissionChecker, Clock.fixed(NOW, COLOMBO));
 
         site = new Estate();
         site.setId("S01");
         site.setActive(true);
-        site.setFullDayQtyKg(23);
-        site.setHalfDayQtyKg(12);
+        site.setFullDayQtyKg(new BigDecimal("23.00"));
+        site.setHalfDayQtyKg(new BigDecimal("12.00"));
         site.setMaxDailyTransactions(2);
-        site.setVariancePercent(2.0f);
+        site.setVariancePercent(new BigDecimal("2.00"));
 
         plucking = new WorkType();
         plucking.setWorkType("PLUCKING");
@@ -147,6 +151,23 @@ class WeighingServiceTest {
     }
 
     @Test
+    void TC55_manualEntryWithoutTheManualGrant_isRefused() {
+        when(permissionChecker.isCurrentUserGranted("POST", WeighingController.MANUAL_PATH)).thenReturn(false);
+
+        assertThatThrownBy(() -> weighingService.recordWeight(request("12.00", EntryType.MANUAL)))
+                .isInstanceOf(InsufficientPermissionException.class)
+                .hasMessage(WeightMessages.WE_08_NO_MANUAL);
+    }
+
+    @Test
+    void WE08_manualEntryWithTheManualGrant_isSaved() {
+        when(permissionChecker.isCurrentUserGranted("POST", WeighingController.MANUAL_PATH)).thenReturn(true);
+
+        assertThat(weighingService.recordWeight(request("12.00", EntryType.MANUAL)).entryType())
+                .isEqualTo(EntryType.MANUAL);
+    }
+
+    @Test
     void TC58_sameWeighingSentTwice_returnsTheStoredRecord() {
         RecordWeightRequest request = request("12.00", EntryType.AUTOMATIC);
         WeightRecord stored = new WeightRecord();
@@ -204,7 +225,7 @@ class WeighingServiceTest {
     @Test
     void TC61_varianceIsSavedFromTheSiteAtWeighingTime() {
         WeightRecordDto saved = weighingService.recordWeight(request("25.00", EntryType.AUTOMATIC));
-        site.setVariancePercent(5.0f);
+        site.setVariancePercent(new BigDecimal("5.00"));
 
         assertThat(saved.variancePercent()).isEqualTo("2.00");
         assertThat(saved.weightAfterVariance()).isEqualTo("25.50");
