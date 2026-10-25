@@ -58,11 +58,10 @@ public class AuthController {
     @Operation(summary = "Keep a web session alive")
     @PostMapping("/refresh/web")
     public ResponseEntity<?> refreshWeb(
-            @RequestBody RefreshRequest request,
             @CookieValue(name = "refresh_jwt", required = false) String refreshToken) {
 
-        if (refreshToken == null) return ResponseEntity.status(401).body("No refresh token cookie found.");
-        TokenResponse response = authService.refresh(request.getUsername(), refreshToken);
+        if (refreshToken == null) throw new InvalidCredentialsException("No refresh token cookie found.");
+        TokenResponse response = authService.refreshByToken(refreshToken);
         return buildCookieResponse(response.getAccessToken(), response.getRefreshToken(), "Token refreshed");
     }
 
