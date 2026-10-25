@@ -125,6 +125,16 @@ public class AuthService {
         return new AuthDto.TokenResponse(newAccessToken, newRefreshToken);
     }
 
+    // Web refresh: the HttpOnly cookie alone identifies the session, so the browser need not send a username.
+    // Every token is also saved to Postgres, so the lookup works even when Redis is down.
+    public TokenResponse refreshByToken(String providedRefreshToken) {
+        String username = refreshTokenRepository.findByToken(providedRefreshToken)
+                .map(RefreshToken::getUsername)
+                .orElseThrow(() -> new InvalidCredentialsException(
+                        "Refresh token expired, invalid, or revoked. Please log in again."));
+        return refresh(username, providedRefreshToken);
+    }
+
     /**
      * LG-04: the employee behind the login must be Active. LG-05: the user must be granted at least
      * one permission set. The superuser has neither an employee nor grants and is always allowed.
