@@ -86,11 +86,23 @@ public class Employee {
     private Estate defaultEstate;
 
     /**
-     * Normal collection point; must belong to defaultEstate.
+     * Normal collection point; must belong to defaultEstate (PB-11). The code is written here; the
+     * collection point is looked up by (default site, code), so this mapping is read-only.
      */
+    @Column(name = "default_collection_point_code")
+    private String defaultCollectionPointCode;
+
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "default_collection_point_code")
+    @JoinColumns({
+            @JoinColumn(name = "default_estate_id", referencedColumnName = "estate_id", insertable = false, updatable = false),
+            @JoinColumn(name = "default_collection_point_code", referencedColumnName = "cp_code", insertable = false, updatable = false)
+    })
     private CollectionPoint defaultCollectionPoint;
+
+    public void setDefaultCollectionPoint(CollectionPoint collectionPoint) {
+        this.defaultCollectionPoint = collectionPoint;
+        this.defaultCollectionPointCode = collectionPoint == null ? null : collectionPoint.getCpCode();
+    }
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "home_estate_id")

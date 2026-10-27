@@ -116,6 +116,18 @@ class AuthServiceSessionsTest {
     }
 
     @Test
+    void loginAndRefreshAreNotCaseSensitive() {
+        Optional<AppUser> sup01 = userRepository.findById("SUP01");
+        when(userRepository.findById("sup01")).thenReturn(Optional.empty());
+        when(userRepository.findFirstByUsernameIgnoreCase("sup01")).thenReturn(sup01);
+
+        TokenResponse session = login("sup01");
+
+        assertThat(table.values()).extracting(RefreshToken::getUsername).containsExactly("SUP01");
+        assertThat(service.refresh("sup01", session.getRefreshToken())).isNotNull();
+    }
+
+    @Test
     void aRotatedTokenCannotBeUsedAgain() {
         TokenResponse session = login("SUP01");
         service.refresh("SUP01", session.getRefreshToken());

@@ -1,6 +1,7 @@
 package com.atrum.agrum.workType;
 
 import com.atrum.agrum.estate.EstateRepository;
+import com.atrum.agrum.estate.SiteMessages;
 import com.atrum.agrum.workType.dto.CreateWorkTypeRequest;
 import com.atrum.agrum.workType.dto.UpdateWorkTypeRequest;
 import com.atrum.agrum.workType.dto.WorkTypeDto;
@@ -8,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 
@@ -18,10 +21,12 @@ public class WorkTypeService {
 
     private final WorkTypeRepository workTypeRepository;
     private final EstateRepository estateRepository;
+    private final Clock clock;
 
-    public WorkTypeService(WorkTypeRepository workTypeRepository, EstateRepository estateRepository) {
+    public WorkTypeService(WorkTypeRepository workTypeRepository, EstateRepository estateRepository, Clock clock) {
         this.workTypeRepository = workTypeRepository;
         this.estateRepository = estateRepository;
+        this.clock = clock;
     }
 
     @Transactional(readOnly = true)
@@ -43,9 +48,9 @@ public class WorkTypeService {
         if (code.length() > MAX_WORK_TYPE_LENGTH) {
             throw new IllegalArgumentException("Work type must be at most " + MAX_WORK_TYPE_LENGTH + " characters");
         }
-        // save() would silently replace an existing work type (the code is the key across all sites)
-        if (workTypeRepository.existsById(code)) {
-            throw new IllegalArgumentException("Work type already exists: " + code);
+        // SB-11: unique within the site; save() would silently replace an existing one
+        if (workTypeRepository.existsById(new WorkTypeId(estateId, code))) {
+            throw new IllegalArgumentException(SiteMessages.SB_11_WORK_TYPE_EXISTS);
         }
 
         WorkType workType = new WorkType();
@@ -59,7 +64,13 @@ public class WorkTypeService {
     public WorkTypeDto updateWorkType(String estateId, String code, UpdateWorkTypeRequest request) {
         WorkType workType = workTypeRepository.findInEstate(estateId, code)
                 .orElseThrow(() -> new IllegalArgumentException("Work type " + code + " not found in site " + estateId));
-        workType.setWeighingRequired(requireWeighingRequired(request.weighingRequired()));
+        boolean weighingRequired = requireWeighingRequired(request.weighingRequired());
+        // SB-13
+        if (workType.isWeighingRequired() && !weighingRequired
+                && workTypeRepository.isWeighedOn(estateId, code, LocalDate.now(clock))) {
+            throw new IllegalArgumentException(SiteMessages.SB_13_WEIGHED_TODAY);
+        }
+        workType.setWeighingRequired(weighingRequired);
         return WorkTypeDto.from(workTypeRepository.save(workType));
     }
 
@@ -71,6 +82,10 @@ public class WorkTypeService {
         List<WorkType> workTypes = workTypeRepository.findAllInEstate(estateId, codes);
         if (workTypes.size() != new HashSet<>(codes).size()) {
             throw new IllegalArgumentException("Some work types were not found in site " + estateId);
+        }
+        // SB-12
+        if (workTypeRepository.isUsedInAttendance(estateId, codes)) {
+            throw new IllegalArgumentException(SiteMessages.SB_12_IN_USE);
         }
         workTypeRepository.deleteAll(workTypes);
     }

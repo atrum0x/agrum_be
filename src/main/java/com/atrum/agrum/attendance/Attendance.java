@@ -64,14 +64,27 @@ public class Attendance extends EstateSecuredEntity {
     @JoinColumn(name = "home_estate_id", updatable = false)
     private Estate homeEstate;
 
-    // Must belong to the working site
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "work_type", nullable = false)
+    // Must belong to the working site. The code is written here; the work type is looked up by
+    // (site, code), so this mapping is read-only
+    @Column(name = "work_type", nullable = false)
+    private String workTypeCode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumns({
+            @JoinColumn(name = "estate_id", referencedColumnName = "estate_id", insertable = false, updatable = false),
+            @JoinColumn(name = "work_type", referencedColumnName = "work_type", insertable = false, updatable = false)
+    })
     private WorkType workType;
 
-    // Must belong to the working site ; copied to weighings later
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "collection_point_code", nullable = false)
+    // Must belong to the working site; copied to weighings later. Read-only like the work type
+    @Column(name = "collection_point_code", nullable = false)
+    private String cpCode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumns({
+            @JoinColumn(name = "estate_id", referencedColumnName = "estate_id", insertable = false, updatable = false),
+            @JoinColumn(name = "collection_point_code", referencedColumnName = "cp_code", insertable = false, updatable = false)
+    })
     private CollectionPoint collectionPoint;
 
     @Enumerated(EnumType.STRING)
@@ -94,4 +107,14 @@ public class Attendance extends EstateSecuredEntity {
     @Version
     @Column(name = "row_version", nullable = false)
     private Integer rowVersion;
+
+    public void setWorkType(WorkType workType) {
+        this.workType = workType;
+        this.workTypeCode = workType == null ? null : workType.getWorkType();
+    }
+
+    public void setCollectionPoint(CollectionPoint collectionPoint) {
+        this.collectionPoint = collectionPoint;
+        this.cpCode = collectionPoint == null ? null : collectionPoint.getCpCode();
+    }
 }

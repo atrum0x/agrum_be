@@ -2,6 +2,7 @@ package com.atrum.agrum.estate;
 
 import com.atrum.agrum.employee.Employee;
 import com.atrum.agrum.employee.EmployeeRepository;
+import com.atrum.agrum.employee.PersonMessages;
 import com.atrum.agrum.employee.dto.EmployeeDto;
 import com.atrum.agrum.employee.mapper.EmployeeMapper;
 import com.atrum.agrum.estate.dto.CreateEstateRequest;
@@ -18,11 +19,16 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
 @Service
 public class EstateService {
+
+    private static final int MAX_SITE_CODE_LENGTH = 20;
+    private static final int MAX_NAME_LENGTH = 120;
+    private static final int MAX_ADDRESS_LENGTH = 250;
 
     private final EstateRepository estateRepository;
     private final AppUserRepository userRepository;
@@ -65,6 +71,12 @@ public class EstateService {
 
     @Transactional
     public void revokeUsers(String estateId, List<String> employeeCodes) {
+        // PB-10: a person's Default Site stays assigned; change their Default Site first
+        if (employeeCodes != null && employeeRepository.findAllById(employeeCodes).stream()
+                .anyMatch(employee -> employee.getDefaultEstate() != null
+                        && employee.getDefaultEstate().getId().equals(estateId))) {
+            throw new IllegalArgumentException(PersonMessages.PB_10_DEFAULT_SITE);
+        }
         changeUserGrants(estateId, employeeCodes, AppUser::removeAllowedEstate);
     }
 
@@ -102,13 +114,14 @@ public class EstateService {
 
     @Transactional
     public Estate createEstate(CreateEstateRequest request) {
-        if (!StringUtils.hasText(request.id())) {
-            throw new IllegalArgumentException("Site ID is required");
+        // SB-01
+        if (!StringUtils.hasText(request.id()) || request.id().trim().length() > MAX_SITE_CODE_LENGTH) {
+            throw new IllegalArgumentException(SiteMessages.SB_01_SITE_CODE);
         }
-        String estateId = request.id().trim();
-        // save() would silently replace an existing estate
+        String estateId = request.id().trim().toUpperCase(Locale.ROOT);
+        // SB-02; save() would silently replace an existing estate
         if (estateRepository.existsById(estateId)) {
-            throw new IllegalArgumentException("Site already exists: " + estateId);
+            throw new IllegalArgumentException(SiteMessages.SB_02_SITE_EXISTS);
         }
 
         Estate estate = new Estate();
@@ -130,21 +143,35 @@ public class EstateService {
     // These columns are NOT NULL, so reject missing values with a 400 instead of a DB error
     private void applyFields(Estate estate, String name, String address, Boolean active, BigDecimal fullDayQtyKg,
                              BigDecimal halfDayQtyKg, Integer maxDailyTransactions, BigDecimal variancePercent) {
+        // SB-03
         if (!StringUtils.hasText(name)) {
-            throw new IllegalArgumentException("Name is required");
+            throw new IllegalArgumentException(SiteMessages.SB_03_SITE_NAME);
         }
-        if (fullDayQtyKg == null || halfDayQtyKg == null || maxDailyTransactions == null || variancePercent == null) {
-            throw new IllegalArgumentException(
-                    "Full day qty, half day qty, max daily transactions and variance % are required");
+        if (name.trim().length() > MAX_NAME_LENGTH) {
+            throw new IllegalArgumentException("Site Name must be at most " + MAX_NAME_LENGTH + " characters.");
         }
-        if (fullDayQtyKg.signum() <= 0 || halfDayQtyKg.signum() <= 0) {
-            throw new IllegalArgumentException("Full day and half day quantities must be greater than 0");
+        if (StringUtils.hasText(address) && address.trim().length() > MAX_ADDRESS_LENGTH) {
+            throw new IllegalArgumentException("Address must be at most " + MAX_ADDRESS_LENGTH + " characters.");
         }
+        // SB-04
+        if (!isPositiveWithTwoDecimals(fullDayQtyKg)) {
+            throw new IllegalArgumentException(SiteMessages.SB_04_FULL_DAY);
+        }
+        // SB-05
+        if (!isPositiveWithTwoDecimals(halfDayQtyKg)) {
+            throw new IllegalArgumentException(SiteMessages.SB_05_HALF_DAY);
+        }
+        // SB-06
         if (halfDayQtyKg.compareTo(fullDayQtyKg) > 0) {
-            throw new IllegalArgumentException("Half day quantity cannot be more than the full day quantity");
+            throw new IllegalArgumentException(SiteMessages.SB_06_HALF_OVER_FULL);
         }
-        if (maxDailyTransactions < 1) {
-            throw new IllegalArgumentException("Max daily transactions must be at least 1");
+        // SB-07
+        if (maxDailyTransactions == null || maxDailyTransactions < 1) {
+            throw new IllegalArgumentException(SiteMessages.SB_07_MAX_TRANSACTIONS);
+        }
+        // SB-08: plus or minus, up to 2 decimals, no range limit
+        if (variancePercent == null || variancePercent.stripTrailingZeros().scale() > 2) {
+            throw new IllegalArgumentException(SiteMessages.SB_08_VARIANCE);
         }
         estate.setName(name.trim());
         estate.setAddress(StringUtils.hasText(address) ? address.trim() : null);
@@ -154,6 +181,10 @@ public class EstateService {
         estate.setHalfDayQtyKg(halfDayQtyKg.setScale(2, RoundingMode.HALF_UP));
         estate.setMaxDailyTransactions(maxDailyTransactions);
         estate.setVariancePercent(variancePercent.setScale(2, RoundingMode.HALF_UP));
+    }
+
+    private static boolean isPositiveWithTwoDecimals(BigDecimal value) {
+        return value != null && value.signum() > 0 && value.stripTrailingZeros().scale() <= 2;
     }
 
     // List all Estates for Admin management
@@ -167,6 +198,12 @@ public class EstateService {
         AppUser user = userRepository.findById(username)
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
 
+        // PB-10: the Default Site stays assigned
+        Employee employee = user.getEmployee();
+        if (employee != null && employee.getDefaultEstate() != null
+                && !estateIds.contains(employee.getDefaultEstate().getId())) {
+            throw new IllegalArgumentException(PersonMessages.PB_10_DEFAULT_SITE);
+        }
         List<Estate> estates = estateRepository.findAllById(estateIds);
         user.setAllowedEstates(new HashSet<>(estates));
         userRepository.save(user);

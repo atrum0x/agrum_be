@@ -6,9 +6,12 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface AppUserRepository extends JpaRepository<AppUser, String> {
     @Query("SELECT e.id FROM AppUser u JOIN u.allowedEstates e WHERE u.username = :username")
     List<String> findAllowedEstateIdsByUsername(@Param("username") String username);
+
+    Optional<AppUser> findFirstByUsernameIgnoreCase(String username);
 }

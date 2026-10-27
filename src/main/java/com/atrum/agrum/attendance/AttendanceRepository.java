@@ -65,8 +65,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
             JOIN FETCH a.recordedBy u
             WHERE a.attendanceDate BETWEEN :dateFrom AND :dateTo
               AND (:estateId = '' OR a.estateId = :estateId)
-              AND (:cpCode = '' OR a.collectionPoint.cpCode = :cpCode)
-              AND (:workType = '' OR a.workType.workType = :workType)
+              AND (:cpCode = '' OR a.cpCode = :cpCode)
+              AND (:workType = '' OR a.workTypeCode = :workType)
               AND (:recordedBy = '' OR u.username = :recordedBy)
               AND (
                   :employee = ''

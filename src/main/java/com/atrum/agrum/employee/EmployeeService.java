@@ -3,6 +3,7 @@ package com.atrum.agrum.employee;
 import com.atrum.agrum.attendance.AttendanceCategory;
 import com.atrum.agrum.auth.AuthService;
 import com.atrum.agrum.collectionPoint.CollectionPoint;
+import com.atrum.agrum.collectionPoint.CollectionPointId;
 import com.atrum.agrum.collectionPoint.CollectionPointRepository;
 import com.atrum.agrum.employee.dto.CreateEmployeeRequest;
 import com.atrum.agrum.employee.dto.EmployeeDto;
@@ -25,11 +26,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
 public class EmployeeService {
+
+    private static final int MAX_EMPLOYEE_NO_LENGTH = 30;
 
     private final EmployeeRepository employeeRepository;
     private final EstateRepository estateRepository;
@@ -44,20 +49,31 @@ public class EmployeeService {
 
     @Transactional
     public EmployeeDto create(CreateEmployeeRequest request) {
-        if (employeeRepository.existsById(request.employeeCode())) {
-            throw new IllegalArgumentException("Employee code is already in use: " + request.employeeCode());
+        // PB-01
+        if (!StringUtils.hasText(request.employeeCode()) || request.employeeCode().trim().length() > MAX_EMPLOYEE_NO_LENGTH) {
+            throw new IllegalArgumentException(PersonMessages.PB_01_EMPLOYEE_NO);
         }
+        String employeeCode = request.employeeCode().trim().toUpperCase(Locale.ROOT);
+        if (employeeRepository.existsById(employeeCode)) {
+            throw new IllegalArgumentException(PersonMessages.PB_01_EMPLOYEE_NO_EXISTS);
+        }
+        String nic = validatePerson(employeeCode, request.firstName(), request.lastName(), request.nic(),
+                request.employeeCategory(), request.startDate(), request.endDate(), request.homeEstateId(),
+                request.defaultEstateId());
         if (request.isUserAccount() && (request.password() == null || request.password().isBlank())) {
             throw new IllegalArgumentException("Password is required when creating a user account");
         }
-        requireCategory(request.employeeCategory());
 
         Employee employee = employeeMapper.fromCreateRequest(request);
+        employee.setEmployeeCode(employeeCode);
+        employee.setNic(nic);
         applyEstates(employee, request.defaultEstateId(), request.defaultCollectionPointCode(), request.homeEstateId());
         Employee savedEmployee = employeeRepository.save(employee);
 
         if (request.isUserAccount()) {
             userService.create(new CreateUserRequest(savedEmployee.getEmployeeCode(), request.password()));
+            // PB-10: the Default Site is one of the Assigned Sites, so the new login can see it
+            savedEmployee.getUserAccount().addAllowedEstate(savedEmployee.getDefaultEstate());
         }
 
         return employeeMapper.toDto(savedEmployee);
@@ -86,10 +102,18 @@ public class EmployeeService {
 
     @Transactional
     public EmployeeDto update(String employeeCode, UpdateEmployeeRequest request) {
-        requireCategory(request.employeeCategory());
         Employee employee = getEmployee(employeeCode);
+        String nic = validatePerson(employeeCode, request.firstName(), request.lastName(), request.nic(),
+                request.employeeCategory(), request.startDate(), request.endDate(), request.homeEstateId(),
+                request.defaultEstateId());
+        // PB-10: a login's Default Site must be one of its granted (assigned) sites
+        if (employee.getUserAccount() != null && employee.getUserAccount().getAllowedEstates().stream()
+                .noneMatch(estate -> estate.getId().equals(request.defaultEstateId().trim()))) {
+            throw new IllegalArgumentException(PersonMessages.PB_10_DEFAULT_SITE);
+        }
         boolean wasActive = employee.getEmploymentStatus() == EmploymentStatus.ACTIVE;
         employeeMapper.updateEmployee(request, employee);
+        employee.setNic(nic);
         applyEstates(employee, request.defaultEstateId(), request.defaultCollectionPointCode(), request.homeEstateId());
         Employee saved = employeeRepository.save(employee);
         // LG-04: an inactive employee cannot log in, so end their current sessions too
@@ -126,10 +150,45 @@ public class EmployeeService {
         employeeRepository.delete(employee);
     }
 
-    private static void requireCategory(AttendanceCategory category) {
-        if (category == null) {
-            throw new IllegalArgumentException("Please select the Employment Category");
+    /** PB-02 to PB-08 and PB-10. Returns the NIC as stored: trimmed and in capitals (FSD: uppercase). */
+    private String validatePerson(String employeeCode, String firstName, String lastName, String nic,
+                                  AttendanceCategory category, LocalDate startDate, LocalDate endDate,
+                                  String homeEstateId, String defaultEstateId) {
+        // PB-02: the FSD has one Name; agrum keeps first and last name
+        if (!StringUtils.hasText(firstName) || !StringUtils.hasText(lastName)) {
+            throw new IllegalArgumentException(PersonMessages.PB_02_NAME);
         }
+        // PB-03
+        if (!StringUtils.hasText(nic)) {
+            throw new IllegalArgumentException(PersonMessages.PB_03_NIC);
+        }
+        String normalizedNic = nic.trim().toUpperCase(Locale.ROOT);
+        // PB-04 (the unique column also refuses it, but with no readable message)
+        employeeRepository.findFirstByNicIgnoreCaseAndEmployeeCodeNot(normalizedNic, employeeCode)
+                .ifPresent(other -> {
+                    throw new IllegalArgumentException(PersonMessages.nicExists(other.getEmployeeCode()));
+                });
+        // PB-05
+        if (category == null) {
+            throw new IllegalArgumentException(PersonMessages.PB_05_CATEGORY);
+        }
+        // PB-06
+        if (startDate == null) {
+            throw new IllegalArgumentException(PersonMessages.PB_06_START_DATE);
+        }
+        // PB-07
+        if (endDate != null && endDate.isBefore(startDate)) {
+            throw new IllegalArgumentException(PersonMessages.PB_07_END_DATE);
+        }
+        // PB-08
+        if (!StringUtils.hasText(homeEstateId)) {
+            throw new IllegalArgumentException(PersonMessages.PB_08_HOME_SITE);
+        }
+        // PB-10: exactly one Default Site
+        if (!StringUtils.hasText(defaultEstateId)) {
+            throw new IllegalArgumentException(PersonMessages.PB_10_DEFAULT_SITE);
+        }
+        return normalizedNic;
     }
 
     private Employee getEmployee(String employeeCode) {
@@ -154,13 +213,9 @@ public class EmployeeService {
         if (defaultEstate == null) {
             throw new IllegalArgumentException("Select a default site before choosing a default collection point");
         }
-        CollectionPoint collectionPoint = collectionPointRepository.findById(cpCode)
-                .orElseThrow(() -> new IllegalArgumentException("Collection point not found: " + cpCode));
-        if (!defaultEstate.getId().equals(collectionPoint.getEstateId())) {
-            throw new IllegalArgumentException(
-                    "Collection point " + cpCode + " does not belong to site " + defaultEstate.getId());
-        }
-        return collectionPoint;
+        // PB-11
+        return collectionPointRepository.findById(new CollectionPointId(defaultEstate.getId(), cpCode.trim()))
+                .orElseThrow(() -> new IllegalArgumentException(PersonMessages.PB_11_DEFAULT_COLLECTION_POINT));
     }
 
     private Estate findEstate(String estateId) {
@@ -241,6 +296,10 @@ public class EmployeeService {
             throw new IllegalStateException("Employee has no user account: " + employeeCode);
         }
 
+        // PB-10: the Default Site stays assigned; change the Default Site first
+        if (employee.getDefaultEstate() != null && estateIds.contains(employee.getDefaultEstate().getId())) {
+            throw new IllegalArgumentException(PersonMessages.PB_10_DEFAULT_SITE);
+        }
         List<Estate> estates = estateRepository.findAllById(estateIds);
         estates.forEach(employee.getUserAccount()::removeAllowedEstate);
     }

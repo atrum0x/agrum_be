@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface CollectionPointRepository extends JpaRepository<CollectionPoint, String> {
+public interface CollectionPointRepository extends JpaRepository<CollectionPoint, CollectionPointId> {
 
     @Query("""
             SELECT cp FROM CollectionPoint cp
@@ -31,8 +31,19 @@ public interface CollectionPointRepository extends JpaRepository<CollectionPoint
     @Query("SELECT COUNT(cp) > 0 FROM CollectionPoint cp WHERE cp.estateId = :estateId")
     boolean existsInEstate(@Param("estateId") String estateId);
 
-    @Query("SELECT e.employeeCode FROM Employee e WHERE e.defaultCollectionPoint.cpCode IN :cpCodes ORDER BY e.employeeCode")
-    List<String> findEmployeesUsingAsDefault(@Param("cpCodes") List<String> cpCodes);
+    @Query("""
+            SELECT e.employeeCode FROM Employee e
+            WHERE e.defaultEstate.id = :estateId AND e.defaultCollectionPointCode IN :cpCodes
+            ORDER BY e.employeeCode
+            """)
+    List<String> findEmployeesUsingAsDefault(@Param("estateId") String estateId, @Param("cpCodes") List<String> cpCodes);
+
+    // SB-12. Native, so attendance at sites the user can't see counts too
+    @Query(value = """
+            SELECT EXISTS (SELECT 1 FROM attendance
+                           WHERE estate_id = :estateId AND collection_point_code IN (:cpCodes))
+            """, nativeQuery = true)
+    boolean isUsedInAttendance(@Param("estateId") String estateId, @Param("cpCodes") List<String> cpCodes);
 
     @Modifying(flushAutomatically = true, clearAutomatically = true)
     @Query("UPDATE CollectionPoint cp SET cp.isDefault = false WHERE cp.estateId = :estateId AND cp.cpCode <> :cpCode")
