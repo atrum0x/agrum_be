@@ -61,7 +61,10 @@ public class AuthService {
     }
 
     public TokenResponse login(LoginRequest request) {
-        AppUser user = userRepository.findById(request.getUsername())
+        // Not case-sensitive (FSD 2.1): an exact match first, then any case
+        String typed = request.getUsername() == null ? "" : request.getUsername().trim();
+        AppUser user = userRepository.findById(typed)
+                .or(() -> userRepository.findFirstByUsernameIgnoreCase(typed))
                 .orElseThrow(() -> new InvalidCredentialsException("Username or password is incorrect."));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
@@ -93,9 +96,11 @@ public class AuthService {
 
     public TokenResponse refresh(String username, String providedRefreshToken) {
         String owner = sessionOwner(providedRefreshToken);
-        if (owner == null || !owner.equals(username)) {
+        // The phone sends the username as typed at login, which may differ in case
+        if (owner == null || !owner.equalsIgnoreCase(username)) {
             throw new InvalidCredentialsException(INVALID_REFRESH);
         }
+        username = owner;
         AppUser user = userRepository.findById(username)
                 .orElseThrow(() -> new InvalidCredentialsException("User not found"));
         // An employee made inactive after login loses access at the next refresh

@@ -9,10 +9,14 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface EmployeeRepository extends JpaRepository<Employee, String> {
     boolean existsByNic(String nic);
+
+    // PB-04: the person who already has this NIC, other than the one being saved
+    Optional<Employee> findFirstByNicIgnoreCaseAndEmployeeCodeNot(String nic, String employeeCode);
 
     @Query("""
             SELECT DISTINCT ps FROM Employee e

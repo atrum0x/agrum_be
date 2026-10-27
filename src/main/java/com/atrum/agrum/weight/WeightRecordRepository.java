@@ -108,8 +108,8 @@ public interface WeightRecordRepository extends JpaRepository<WeightRecord, UUID
               AND (:employeeCode = '' OR e.employeeCode = :employeeCode)
               AND (:supervisor = '' OR s.username = :supervisor)
               AND (:estateId = '' OR w.estateId = :estateId)
-              AND (:cpCode = '' OR w.collectionPoint.cpCode = :cpCode)
-              AND (:workType = '' OR w.workType.workType = :workType)
+              AND (:cpCode = '' OR w.cpCode = :cpCode)
+              AND (:workType = '' OR w.workTypeCode = :workType)
               AND a.attendanceCategory IN :categories
               AND w.entryType IN :entryTypes
               AND w.lineState IN :lineStates
@@ -125,8 +125,8 @@ public interface WeightRecordRepository extends JpaRepository<WeightRecord, UUID
               AND (:employeeCode = '' OR e.employeeCode = :employeeCode)
               AND (:supervisor = '' OR s.username = :supervisor)
               AND (:estateId = '' OR w.estateId = :estateId)
-              AND (:cpCode = '' OR w.collectionPoint.cpCode = :cpCode)
-              AND (:workType = '' OR w.workType.workType = :workType)
+              AND (:cpCode = '' OR w.cpCode = :cpCode)
+              AND (:workType = '' OR w.workTypeCode = :workType)
               AND a.attendanceCategory IN :categories
               AND w.entryType IN :entryTypes
               AND w.lineState IN :lineStates

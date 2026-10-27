@@ -44,7 +44,7 @@ public interface DailyWeightSummaryRepository extends JpaRepository<DailyWeightS
                    e.half_day_qty_kg            AS "halfDayQtyKg"
             FROM weight_records w
             JOIN attendance a ON a.attendance_id = w.attendance_id
-            JOIN work_types wt ON wt.work_type = a.work_type
+            JOIN work_types wt ON wt.estate_id = a.estate_id AND wt.work_type = a.work_type
             JOIN estates e ON e.id = a.estate_id
             WHERE w.weigh_date = :date
               AND w.line_state = 'RECORDED'

@@ -4,6 +4,7 @@ import com.atrum.agrum.collectionPoint.dto.CollectionPointDto;
 import com.atrum.agrum.collectionPoint.dto.CreateCollectionPointRequest;
 import com.atrum.agrum.collectionPoint.dto.UpdateCollectionPointRequest;
 import com.atrum.agrum.estate.EstateRepository;
+import com.atrum.agrum.estate.SiteMessages;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -13,6 +14,8 @@ import java.util.List;
 
 @Service
 public class CollectionPointService {
+
+    private static final int MAX_CODE_LENGTH = 30;
 
     private final CollectionPointRepository collectionPointRepository;
     private final EstateRepository estateRepository;
@@ -37,13 +40,17 @@ public class CollectionPointService {
         if (!estateRepository.existsById(estateId)) {
             throw new IllegalArgumentException("Site not found: " + estateId);
         }
+        // SB-09
         if (!StringUtils.hasText(request.cpCode())) {
-            throw new IllegalArgumentException("Collection point code is required");
+            throw new IllegalArgumentException("Please enter the Collection Point.");
         }
         String cpCode = request.cpCode().trim();
-        // save() would silently replace an existing collection point
-        if (collectionPointRepository.existsById(cpCode)) {
-            throw new IllegalArgumentException("Collection point already exists: " + cpCode);
+        if (cpCode.length() > MAX_CODE_LENGTH) {
+            throw new IllegalArgumentException("Collection Point must be at most " + MAX_CODE_LENGTH + " characters.");
+        }
+        // SB-09: unique within the site; save() would silently replace an existing one
+        if (collectionPointRepository.existsById(new CollectionPointId(estateId, cpCode))) {
+            throw new IllegalArgumentException(SiteMessages.SB_09_COLLECTION_POINT_EXISTS);
         }
 
         CollectionPoint collectionPoint = new CollectionPoint();
@@ -96,11 +103,15 @@ public class CollectionPointService {
             throw new IllegalArgumentException("Some collection points were not found in site " + estateId);
         }
         // employees.default_collection_point_code references these rows
-        List<String> employeeCodes = collectionPointRepository.findEmployeesUsingAsDefault(cpCodes);
+        List<String> employeeCodes = collectionPointRepository.findEmployeesUsingAsDefault(estateId, cpCodes);
         if (!employeeCodes.isEmpty()) {
             throw new IllegalArgumentException("Collection point is the default for employees: "
                     + String.join(", ", employeeCodes.stream().limit(5).toList())
                     + (employeeCodes.size() > 5 ? " and " + (employeeCodes.size() - 5) + " more" : ""));
+        }
+        // SB-12
+        if (collectionPointRepository.isUsedInAttendance(estateId, cpCodes)) {
+            throw new IllegalArgumentException(SiteMessages.SB_12_IN_USE);
         }
         boolean deletesDefault = collectionPoints.stream().anyMatch(CollectionPoint::isDefault);
         collectionPointRepository.deleteAll(collectionPoints);
