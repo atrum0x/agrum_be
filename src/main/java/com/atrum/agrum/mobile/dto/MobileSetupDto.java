@@ -1,6 +1,7 @@
 package com.atrum.agrum.mobile.dto;
 
 import com.atrum.agrum.attendance.dto.AttendanceWorkerDto;
+import com.atrum.agrum.weight.dto.WeighableWorkerDto;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -23,5 +24,8 @@ public record MobileSetupDto(
         // Active workers employed today, from all sites (attendance can be for other-site workers)
         List<AttendanceWorkerDto> workers,
         // Workers with attendance today on any site, so the phone can hide them (AT-02)
-        List<String> attendedToday
+        List<String> attendedToday,
+        // Today's attendance at the user's sites with a weighing-required work type, with entries so
+        // far and the last entry number, so the weighing screen works offline (FSD 2.7, 5.4)
+        List<WeighableWorkerDto> weighableToday
 ) {}

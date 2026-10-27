@@ -15,6 +15,7 @@ import com.atrum.agrum.mobile.dto.MobileWorkTypeDto;
 import com.atrum.agrum.security.PermissionChecker;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.UserService;
+import com.atrum.agrum.weight.WeighingService;
 import com.atrum.agrum.workType.WorkTypeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,7 @@ public class MobileSetupService {
     private final CollectionPointRepository collectionPointRepository;
     private final EmployeeRepository employeeRepository;
     private final AttendanceRepository attendanceRepository;
+    private final WeighingService weighingService;
     private final Clock clock;
 
     @Transactional(readOnly = true)
@@ -76,7 +78,8 @@ public class MobileSetupService {
                 workTypes,
                 collectionPoints,
                 workers,
-                attendanceRepository.findAllEmployeeCodesRecordedOn(today).stream().distinct().sorted().toList());
+                attendanceRepository.findAllEmployeeCodesRecordedOn(today).stream().distinct().sorted().toList(),
+                weighingService.getWeighableWorkers(""));
     }
 
     private static MobileEstateDto toEstate(Estate estate) {
