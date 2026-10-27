@@ -20,6 +20,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
@@ -56,6 +57,8 @@ class AuthServiceSessionsTest {
     private PermissionChecker permissionChecker;
     @Mock
     private PermissionCacheEvictor permissionCacheEvictor;
+
+    private static final Duration WEB = Duration.ofMinutes(30);
 
     private final Map<String, RefreshToken> table = new HashMap<>();
     private AuthService service;
@@ -108,11 +111,31 @@ class AuthServiceSessionsTest {
         TokenResponse web = login("SUP01");
 
         TokenResponse phoneRefreshed = service.refresh("SUP01", phone.getRefreshToken());
-        TokenResponse webRefreshed = service.refreshByToken(web.getRefreshToken());
+        TokenResponse webRefreshed = service.refreshByToken(web.getRefreshToken(), WEB);
 
         assertThat(phoneRefreshed.getRefreshToken()).isNotEqualTo(phone.getRefreshToken());
         assertThat(webRefreshed.getRefreshToken()).isNotEqualTo(web.getRefreshToken());
         assertThat(table).hasSize(2);
+    }
+
+    @Test
+    void LG06_aWebSessionLivesOnlyTheIdlePeriodAndEachRefreshStartsItAgain() {
+        LoginRequest request = new LoginRequest();
+        ReflectionTestUtils.setField(request, "username", "SUP01");
+        ReflectionTestUtils.setField(request, "password", "pw");
+
+        TokenResponse web = service.login(request, WEB);
+        Instant expiry = table.get(AuthService.hash(web.getRefreshToken())).getExpiryDate();
+        assertThat(expiry).isBetween(Instant.now().plus(WEB).minusSeconds(5), Instant.now().plus(WEB));
+
+        TokenResponse refreshed = service.refreshByToken(web.getRefreshToken(), WEB);
+        assertThat(table.get(AuthService.hash(refreshed.getRefreshToken())).getExpiryDate())
+                .isBetween(Instant.now().plus(WEB).minusSeconds(5), Instant.now().plus(WEB));
+
+        // The phone keeps its long session
+        TokenResponse phone = login("SUP01");
+        assertThat(table.get(AuthService.hash(phone.getRefreshToken())).getExpiryDate())
+                .isAfter(Instant.now().plus(Duration.ofDays(59)));
     }
 
     @Test
@@ -150,7 +173,7 @@ class AuthServiceSessionsTest {
         String hash = AuthService.hash(session.getRefreshToken());
         table.put(hash, new RefreshToken(hash, "SUP01", Instant.now().minusSeconds(1)));
 
-        assertThatThrownBy(() -> service.refreshByToken(session.getRefreshToken()))
+        assertThatThrownBy(() -> service.refreshByToken(session.getRefreshToken(), WEB))
                 .isInstanceOf(InvalidCredentialsException.class);
     }
 
@@ -161,7 +184,7 @@ class AuthServiceSessionsTest {
 
         service.logout(web.getRefreshToken());
 
-        assertThatThrownBy(() -> service.refreshByToken(web.getRefreshToken()))
+        assertThatThrownBy(() -> service.refreshByToken(web.getRefreshToken(), WEB))
                 .isInstanceOf(InvalidCredentialsException.class);
         assertThat(service.refresh("SUP01", phone.getRefreshToken())).isNotNull();
         verify(permissionCacheEvictor).evictUser("SUP01");
@@ -186,10 +209,10 @@ class AuthServiceSessionsTest {
         service.revokeSessions("SUP01");
 
         for (TokenResponse session : List.of(phone, web)) {
-            assertThatThrownBy(() -> service.refreshByToken(session.getRefreshToken()))
+            assertThatThrownBy(() -> service.refreshByToken(session.getRefreshToken(), WEB))
                     .isInstanceOf(InvalidCredentialsException.class);
         }
-        assertThat(service.refreshByToken(otherUser.getRefreshToken())).isNotNull();
+        assertThat(service.refreshByToken(otherUser.getRefreshToken(), WEB)).isNotNull();
     }
 
     @Test

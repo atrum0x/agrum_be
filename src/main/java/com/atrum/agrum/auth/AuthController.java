@@ -9,6 +9,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.Duration;
 import com.atrum.agrum.auth.AuthDto.*;
 import com.atrum.agrum.exception.InvalidCredentialsException;
 
@@ -21,11 +23,15 @@ public class AuthController {
     private final boolean cookieSecure;
     private final String cookieSameSite;
     private final String cookieDomain;
+    // LG-06 / CL-07: a web session ends after this long without activity. Each refresh (about every
+    // 15 minutes while the user is active) starts it again
+    private final Duration webSessionIdle;
 
     public AuthController(AuthService authService,
                           @Value("${app.cookie.secure}") boolean cookieSecure,
                           @Value("${app.cookie.same-site}") String cookieSameSite,
-                          @Value("${app.cookie.domain}") String cookieDomain) {
+                          @Value("${app.cookie.domain}") String cookieDomain,
+                          @Value("${app.session.web-idle-minutes:30}") long webSessionIdleMinutes) {
         // Browsers silently drop SameSite=None cookies that are not Secure, so fail fast instead
         if ("None".equalsIgnoreCase(cookieSameSite) && !cookieSecure) {
             throw new IllegalStateException("COOKIE_SAME_SITE=None requires COOKIE_SECURE=true");
@@ -34,13 +40,14 @@ public class AuthController {
         this.cookieSecure = cookieSecure;
         this.cookieSameSite = cookieSameSite;
         this.cookieDomain = cookieDomain;
+        this.webSessionIdle = Duration.ofMinutes(webSessionIdleMinutes);
     }
 
     // Web Login (Cookies only, no tokens in body)
     @Operation(summary = "Log in to the web app")
     @PostMapping("/login/web")
     public ResponseEntity<?> loginWeb(@RequestBody LoginRequest request) {
-        TokenResponse response = authService.login(request);
+        TokenResponse response = authService.login(request, webSessionIdle);
         // Returns the cookies, and just a simple string in the body
         return buildCookieResponse(response.getAccessToken(), response.getRefreshToken(), "Logged in securely from web");
     }
@@ -61,7 +68,7 @@ public class AuthController {
             @CookieValue(name = "refresh_jwt", required = false) String refreshToken) {
 
         if (refreshToken == null) throw new InvalidCredentialsException("No refresh token cookie found.");
-        TokenResponse response = authService.refreshByToken(refreshToken);
+        TokenResponse response = authService.refreshByToken(refreshToken, webSessionIdle);
         return buildCookieResponse(response.getAccessToken(), response.getRefreshToken(), "Token refreshed");
     }
 
@@ -124,7 +131,7 @@ public class AuthController {
 
     private ResponseEntity<?> buildCookieResponse(String accessToken, String refreshToken, String message) {
         ResponseCookie accessCookie = authCookie("access_jwt", accessToken, 15 * 60); // 15 minutes
-        ResponseCookie refreshCookie = authCookie("refresh_jwt", refreshToken, 60 * 24 * 60 * 60); // 60 days
+        ResponseCookie refreshCookie = authCookie("refresh_jwt", refreshToken, webSessionIdle.toSeconds());
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
