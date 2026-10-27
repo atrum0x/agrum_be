@@ -9,6 +9,7 @@ import com.atrum.agrum.permission.mapper.PermissionSetMapper;
 import com.atrum.agrum.projection.mapper.ProjectionMapper;
 import com.atrum.agrum.projection.Projection;
 import com.atrum.agrum.projection.ProjectionRepository;
+import com.atrum.agrum.security.PermissionCacheEvictor;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.AppUserRepository;
 import com.atrum.agrum.user.dto.AppUserDto;
@@ -32,6 +33,7 @@ public class PermissionService {
     private final ProjectionMapper projectionMapper;
     private final PermissionSetMapper permissionSetMapper;
     private final AppUserMapper appUserMapper;
+    private final PermissionCacheEvictor permissionCacheEvictor;
 
     public List<Projection> getAllProjections() {
         return projectionRepository.findAll();
@@ -69,6 +71,7 @@ public class PermissionService {
         List<Projection> projections = projectionRepository.findAllById(projectionIds);
         projections.forEach(permissionSet::addProjection);
         permissionSetRepository.save(permissionSet);
+        permissionCacheEvictor.evictAll();
     }
 
     @Transactional
@@ -79,6 +82,7 @@ public class PermissionService {
 
         projections.forEach(permissionSet::removeProjection);
         permissionSetRepository.save(permissionSet);
+        permissionCacheEvictor.evictAll();
     }
 
     @Transactional
@@ -87,6 +91,7 @@ public class PermissionService {
         List<AppUser> appUsers = userRepository.findAllById(usernames);
         appUsers.forEach(user -> user.addPermissionSet(ps));
         userRepository.saveAll(appUsers);
+        permissionCacheEvictor.evictUsers(appUsers.stream().map(AppUser::getUsername).toList());
     }
 
     @Transactional
@@ -95,6 +100,7 @@ public class PermissionService {
         List<AppUser> appUsers = userRepository.findAllById(usernames);
         appUsers.forEach(user -> user.removePermissionSet(ps));
         userRepository.saveAll(appUsers);
+        permissionCacheEvictor.evictUsers(appUsers.stream().map(AppUser::getUsername).toList());
     }
 
     @Transactional(readOnly = true)

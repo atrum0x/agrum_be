@@ -77,8 +77,9 @@ public class AuthController {
     // 1. WEB LOGOUT (Revokes session in DB + Clears Browser Cookies)
     @Operation(summary = "Log out of the web app")
     @PostMapping("/logout/web")
-    public ResponseEntity<?> logoutWeb(@RequestBody LogoutRequest request) {
-        authService.logout(request);
+    public ResponseEntity<?> logoutWeb(@CookieValue(name = "refresh_jwt", required = false) String refreshToken) {
+        // Ends this browser's session only; the user's other sessions stay logged in
+        authService.logout(refreshToken);
 
         // Overwrite the cookies with empty values and a maxAge of 0 to delete them instantly
         // Attributes must match the original cookies or the browser will not delete them
@@ -95,7 +96,8 @@ public class AuthController {
     @Operation(summary = "Log out of the mobile app")
     @PostMapping("/logout/mobile")
     public ResponseEntity<?> logoutMobile(@RequestBody LogoutRequest request) {
-        authService.logout(request);
+        // Ends this phone's session only
+        authService.logout(request.getRefreshToken());
 
         // No cookies sent. The mobile app must delete its own stored tokens.
         return ResponseEntity.ok("Successfully logged out from mobile.");
