@@ -38,7 +38,9 @@ public class AuthService {
     private final PermissionCacheEvictor permissionCacheEvictor;
 
     private static final String REDIS_PREFIX = "refresh_session:";
-    private static final Duration SESSION_LIFETIME = Duration.ofDays(60);
+    // The phone keeps its session for offline work and ends it itself after inactivity (LG-06);
+    // web sessions get a short lifetime from AuthController instead
+    public static final Duration MOBILE_SESSION_LIFETIME = Duration.ofDays(60);
     private static final String INVALID_REFRESH = "Refresh token expired, invalid, or revoked. Please log in again.";
 
     @Value("${SUPERUSER_USERNAME}")
@@ -61,6 +63,11 @@ public class AuthService {
     }
 
     public TokenResponse login(LoginRequest request) {
+        return login(request, MOBILE_SESSION_LIFETIME);
+    }
+
+    /** {@code sessionLifetime}: how long the refresh token lives; each refresh starts it again. */
+    public TokenResponse login(LoginRequest request, Duration sessionLifetime) {
         // Not case-sensitive (FSD 2.1): an exact match first, then any case
         String typed = request.getUsername() == null ? "" : request.getUsername().trim();
         AppUser user = userRepository.findById(typed)
@@ -89,12 +96,16 @@ public class AuthService {
         }
 
         refreshTokenRepository.deleteExpired(user.getUsername(), Instant.now());
-        saveRefreshToken(user.getUsername(), refreshToken);
+        saveRefreshToken(user.getUsername(), refreshToken, sessionLifetime);
 
         return new TokenResponse(accessToken, refreshToken);
     }
 
     public TokenResponse refresh(String username, String providedRefreshToken) {
+        return refresh(username, providedRefreshToken, MOBILE_SESSION_LIFETIME);
+    }
+
+    public TokenResponse refresh(String username, String providedRefreshToken, Duration sessionLifetime) {
         String owner = sessionOwner(providedRefreshToken);
         // The phone sends the username as typed at login, which may differ in case
         if (owner == null || !owner.equalsIgnoreCase(username)) {
@@ -126,18 +137,18 @@ public class AuthService {
 
         // Rotate only this session; the user's other sessions (web, another phone) carry on
         deleteSession(providedRefreshToken);
-        saveRefreshToken(username, newRefreshToken);
+        saveRefreshToken(username, newRefreshToken, sessionLifetime);
 
         return new AuthDto.TokenResponse(newAccessToken, newRefreshToken);
     }
 
     // Web refresh: the HttpOnly cookie alone identifies the session, so the browser need not send a username.
-    public TokenResponse refreshByToken(String providedRefreshToken) {
+    public TokenResponse refreshByToken(String providedRefreshToken, Duration sessionLifetime) {
         String username = sessionOwner(providedRefreshToken);
         if (username == null) {
             throw new InvalidCredentialsException(INVALID_REFRESH);
         }
-        return refresh(username, providedRefreshToken);
+        return refresh(username, providedRefreshToken, sessionLifetime);
     }
 
     /**
@@ -216,11 +227,11 @@ public class AuthService {
     }
 
     // Every token is also saved to Postgres, so checks work even when Redis is down
-    private void saveRefreshToken(String username, String refreshToken) {
+    private void saveRefreshToken(String username, String refreshToken, Duration lifetime) {
         String hash = hash(refreshToken);
-        refreshTokenRepository.save(new RefreshToken(hash, username, Instant.now().plus(SESSION_LIFETIME)));
+        refreshTokenRepository.save(new RefreshToken(hash, username, Instant.now().plus(lifetime)));
         try {
-            redisTemplate.opsForValue().set(REDIS_PREFIX + hash, username, SESSION_LIFETIME);
+            redisTemplate.opsForValue().set(REDIS_PREFIX + hash, username, lifetime);
         } catch (Exception e) {
             System.err.println("Redis is down! Refresh token saved to DB only.");
         }
