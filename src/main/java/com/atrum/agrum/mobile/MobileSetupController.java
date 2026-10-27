@@ -17,7 +17,7 @@ public class MobileSetupController {
 
     private final MobileSetupService mobileSetupService;
 
-    @Operation(summary = "Download the sites, work types, collection points and workers the phone keeps for working offline. Give to field supervisors")
+    @Operation(summary = "Download the sites, work types, collection points, workers and today's weighable attendance the phone keeps for working offline. Give to field supervisors")
     @GetMapping("/setup")
     public ResponseEntity<MobileSetupDto> getSetup() {
         return ResponseEntity.ok(mobileSetupService.getSetup());
