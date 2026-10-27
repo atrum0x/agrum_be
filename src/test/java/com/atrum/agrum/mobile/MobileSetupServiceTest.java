@@ -14,6 +14,8 @@ import com.atrum.agrum.mobile.dto.MobileSetupDto;
 import com.atrum.agrum.security.PermissionChecker;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.UserService;
+import com.atrum.agrum.weight.WeighingService;
+import com.atrum.agrum.weight.dto.WeighableWorkerDto;
 import com.atrum.agrum.workType.WorkType;
 import com.atrum.agrum.workType.WorkTypeRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -30,6 +32,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
@@ -58,6 +61,8 @@ class MobileSetupServiceTest {
     private EmployeeRepository employeeRepository;
     @Mock
     private AttendanceRepository attendanceRepository;
+    @Mock
+    private WeighingService weighingService;
 
     private MobileSetupService service;
 
@@ -69,7 +74,8 @@ class MobileSetupServiceTest {
     @BeforeEach
     void setUp() {
         service = new MobileSetupService(userService, permissionChecker, estateRepository, workTypeRepository,
-                collectionPointRepository, employeeRepository, attendanceRepository, Clock.fixed(NOW, COLOMBO));
+                collectionPointRepository, employeeRepository, attendanceRepository, weighingService,
+                Clock.fixed(NOW, COLOMBO));
 
         s01 = estate("S01", true);
         s02 = estate("S02", true);
@@ -107,6 +113,9 @@ class MobileSetupServiceTest {
         worker.setEmployeeCategory(AttendanceCategory.REGULAR);
         when(employeeRepository.findEmployedOn(EmploymentStatus.ACTIVE, TODAY, "")).thenReturn(List.of(worker));
         when(attendanceRepository.findAllEmployeeCodesRecordedOn(TODAY)).thenReturn(List.of("E002", "E002"));
+        when(weighingService.getWeighableWorkers("")).thenReturn(List.of(new WeighableWorkerDto("E002", "Sunil Silva",
+                UUID.fromString("6f1c2a3e-0000-4000-8000-000000000001"), "S01", "Site S01", "CP1", "North shed",
+                "PLUCKING", new BigDecimal("2.00"), 1, 2, 1)));
     }
 
     @Test
@@ -127,6 +136,12 @@ class MobileSetupServiceTest {
             assertThat(w.defaultEstateId()).isEqualTo("S02");
         });
         assertThat(setup.attendedToday()).containsExactly("E002");
+        // The weighing screen's offline list (FSD 2.7, 5.4)
+        assertThat(setup.weighableToday()).singleElement().satisfies(w -> {
+            assertThat(w.employeeCode()).isEqualTo("E002");
+            assertThat(w.entriesToday()).isEqualTo(1);
+            assertThat(w.lastSequence()).isEqualTo(1);
+        });
         verify(estateRepository, never()).findAll();
         verify(workTypeRepository, never()).findAllByEstate("S03");
     }
