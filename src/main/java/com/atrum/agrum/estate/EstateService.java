@@ -10,7 +10,7 @@ import com.atrum.agrum.estate.dto.UpdateEstateRequest;
 import com.atrum.agrum.exception.ResourceNotFoundException;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.AppUserRepository;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import com.atrum.agrum.security.PermissionCacheEvictor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -34,18 +34,18 @@ public class EstateService {
     private final AppUserRepository userRepository;
     private final EmployeeRepository employeeRepository;
     private final EmployeeMapper employeeMapper;
-    private final StringRedisTemplate redisTemplate;
+    private final PermissionCacheEvictor permissionCacheEvictor;
 
     public EstateService(EstateRepository estateRepository,
                          AppUserRepository userRepository,
                          EmployeeRepository employeeRepository,
                          EmployeeMapper employeeMapper,
-                         StringRedisTemplate redisTemplate) {
+                         PermissionCacheEvictor permissionCacheEvictor) {
         this.estateRepository = estateRepository;
         this.userRepository = userRepository;
         this.employeeRepository = employeeRepository;
         this.employeeMapper = employeeMapper;
-        this.redisTemplate = redisTemplate;
+        this.permissionCacheEvictor = permissionCacheEvictor;
     }
 
     @Transactional(readOnly = true)
@@ -98,17 +98,8 @@ public class EstateService {
         for (Employee employee : employees) {
             AppUser user = employee.getUserAccount();
             change.accept(user, estate);
-            evictUserEstates(user.getUsername());
-        }
-    }
-
-    // The estate filter reads this cache before the DB; a stale entry keeps old access.
-    // Tokens issued before the change still carry the old estates claim until refreshed.
-    private void evictUserEstates(String username) {
-        try {
-            redisTemplate.delete("userEstates::" + username);
-        } catch (Exception e) {
-            System.err.println("Valkey down! DB updated successfully.");
+            // The estate filter reads this cache; clearing it applies the change on the next request
+            permissionCacheEvictor.evictUserEstates(user.getUsername());
         }
     }
 
@@ -207,13 +198,7 @@ public class EstateService {
         List<Estate> estates = estateRepository.findAllById(estateIds);
         user.setAllowedEstates(new HashSet<>(estates));
         userRepository.save(user);
-
-        // Evict Valkey / Redis cache instantly
-        try {
-            redisTemplate.delete("userEstates::" + username);
-        } catch (Exception e) {
-            System.err.println("Valkey down! DB updated successfully.");
-        }
+        permissionCacheEvictor.evictUserEstates(username);
     }
 
     // Get assigned estate IDs for a specific user

@@ -74,6 +74,7 @@ public class EmployeeService {
             userService.create(new CreateUserRequest(savedEmployee.getEmployeeCode(), request.password()));
             // PB-10: the Default Site is one of the Assigned Sites, so the new login can see it
             savedEmployee.getUserAccount().addAllowedEstate(savedEmployee.getDefaultEstate());
+            permissionCacheEvictor.evictUserEstates(savedEmployee.getUserAccount().getUsername());
         }
 
         return employeeMapper.toDto(savedEmployee);
@@ -302,6 +303,7 @@ public class EmployeeService {
         }
         List<Estate> estates = estateRepository.findAllById(estateIds);
         estates.forEach(employee.getUserAccount()::removeAllowedEstate);
+        permissionCacheEvictor.evictUserEstates(employee.getUserAccount().getUsername());
     }
 
     @Transactional
@@ -315,5 +317,6 @@ public class EmployeeService {
 
         List<Estate> estates = estateRepository.findAllById(estateIds);
         estates.forEach(employee.getUserAccount()::addAllowedEstate);
+        permissionCacheEvictor.evictUserEstates(employee.getUserAccount().getUsername());
     }
 }

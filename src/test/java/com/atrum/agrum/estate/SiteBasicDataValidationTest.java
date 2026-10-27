@@ -8,6 +8,7 @@ import com.atrum.agrum.collectionPoint.dto.CreateCollectionPointRequest;
 import com.atrum.agrum.employee.EmployeeRepository;
 import com.atrum.agrum.employee.mapper.EmployeeMapper;
 import com.atrum.agrum.estate.dto.CreateEstateRequest;
+import com.atrum.agrum.security.PermissionCacheEvictor;
 import com.atrum.agrum.user.AppUserRepository;
 import com.atrum.agrum.workType.WorkType;
 import com.atrum.agrum.workType.WorkTypeId;
@@ -22,7 +23,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.math.BigDecimal;
 import java.time.Clock;
@@ -60,7 +60,7 @@ class SiteBasicDataValidationTest {
     @Mock
     private EmployeeMapper employeeMapper;
     @Mock
-    private StringRedisTemplate redisTemplate;
+    private PermissionCacheEvictor permissionCacheEvictor;
     @Mock
     private WorkTypeRepository workTypeRepository;
     @Mock
@@ -72,7 +72,7 @@ class SiteBasicDataValidationTest {
 
     @BeforeEach
     void setUp() {
-        estates = new EstateService(estateRepository, userRepository, employeeRepository, employeeMapper, redisTemplate);
+        estates = new EstateService(estateRepository, userRepository, employeeRepository, employeeMapper, permissionCacheEvictor);
         workTypes = new WorkTypeService(workTypeRepository, estateRepository,
                 Clock.fixed(Instant.parse("2026-10-24T04:30:00Z"), ZoneId.of("Asia/Colombo")));
         collectionPoints = new CollectionPointService(collectionPointRepository, estateRepository);
