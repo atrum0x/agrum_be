@@ -17,6 +17,7 @@ import com.atrum.agrum.permission.PermissionSet;
 import com.atrum.agrum.permission.PermissionSetRepository;
 import com.atrum.agrum.permission.dto.PermissionSetDto;
 import com.atrum.agrum.permission.mapper.PermissionSetMapper;
+import com.atrum.agrum.security.PermissionCacheEvictor;
 import com.atrum.agrum.user.UserService;
 import com.atrum.agrum.user.dto.CreateUserRequest;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class EmployeeService {
     private final EmployeeMapper employeeMapper;
     private final PermissionSetMapper permissionSetMapper;
     private final UserService userService;
+    private final PermissionCacheEvictor permissionCacheEvictor;
     private final AuthService authService;
 
     @Transactional
@@ -213,6 +215,7 @@ public class EmployeeService {
 
         List<PermissionSet> permissionSets = permissionSetRepository.findAllById(permissionSetIds);
         permissionSets.forEach(employee.getUserAccount()::removePermissionSet);
+        permissionCacheEvictor.evictUser(employee.getUserAccount().getUsername());
     }
 
     @Transactional
@@ -226,6 +229,7 @@ public class EmployeeService {
 
         List<PermissionSet> permissionSets = permissionSetRepository.findAllById(permissionSetIds);
         permissionSets.forEach(employee.getUserAccount()::addPermissionSet);
+        permissionCacheEvictor.evictUser(employee.getUserAccount().getUsername());
     }
 
     @Transactional

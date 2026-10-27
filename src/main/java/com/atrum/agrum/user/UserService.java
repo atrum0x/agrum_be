@@ -4,6 +4,7 @@ import com.atrum.agrum.employee.Employee;
 import com.atrum.agrum.employee.EmployeeRepository;
 import com.atrum.agrum.exception.InsufficientPermissionException;
 import com.atrum.agrum.exception.ResourceNotFoundException;
+import com.atrum.agrum.security.PermissionCacheEvictor;
 import com.atrum.agrum.user.dto.AppUserDto;
 import com.atrum.agrum.user.dto.CreateUserRequest;
 import com.atrum.agrum.user.mapper.AppUserMapper;
@@ -24,6 +25,7 @@ public class UserService {
     private final EmployeeRepository employeeRepository;
     private final AppUserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
+    private final PermissionCacheEvictor permissionCacheEvictor;
 
     @Transactional
     public AppUserDto create(CreateUserRequest request) {
@@ -77,6 +79,8 @@ public class UserService {
     @Transactional
     public void delete(String username) {
         userRepository.delete(getUser(username));
+        // Its access token stays valid until it expires; it must not keep cached grants
+        permissionCacheEvictor.evictUser(username);
     }
 
     /** The logged-in user, e.g. to stamp recorded_by / corrected_by. */
