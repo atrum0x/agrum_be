@@ -21,6 +21,8 @@ public class AuthDto {
     @Getter
     public static class LogoutRequest {
         private String username;
+        // The session to end. The web sends it as the refresh_jwt cookie instead
+        private String refreshToken;
     }
 
     @Getter

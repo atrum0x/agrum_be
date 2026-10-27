@@ -5,6 +5,7 @@ import com.atrum.agrum.employee.EmploymentStatus;
 import com.atrum.agrum.exception.InvalidCredentialsException;
 import com.atrum.agrum.exception.ResourceNotFoundException;
 import com.atrum.agrum.security.JwtTokenProvider;
+import com.atrum.agrum.security.PermissionCacheEvictor;
 import com.atrum.agrum.security.PermissionChecker;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.AppUserRepository;
@@ -15,8 +16,12 @@ import org.springframework.stereotype.Service;
 import com.atrum.agrum.auth.AuthDto.*;
 import com.atrum.agrum.estate.Estate;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,6 +35,11 @@ public class AuthService {
     private final JwtTokenProvider tokenProvider;
     private final StringRedisTemplate redisTemplate;
     private final PermissionChecker permissionChecker;
+    private final PermissionCacheEvictor permissionCacheEvictor;
+
+    private static final String REDIS_PREFIX = "refresh_session:";
+    private static final Duration SESSION_LIFETIME = Duration.ofDays(60);
+    private static final String INVALID_REFRESH = "Refresh token expired, invalid, or revoked. Please log in again.";
 
     @Value("${SUPERUSER_USERNAME}")
     private String superUsername;
@@ -39,13 +49,15 @@ public class AuthService {
                        PasswordEncoder passwordEncoder,
                        JwtTokenProvider tokenProvider,
                        StringRedisTemplate redisTemplate,
-                       PermissionChecker permissionChecker) {
+                       PermissionChecker permissionChecker,
+                       PermissionCacheEvictor permissionCacheEvictor) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
         this.redisTemplate = redisTemplate;
         this.permissionChecker = permissionChecker;
+        this.permissionCacheEvictor = permissionCacheEvictor;
     }
 
     public TokenResponse login(LoginRequest request) {
@@ -73,29 +85,16 @@ public class AuthService {
             System.err.println("Valkey/Redis is down! Relying on JWT claims.");
         }
 
+        refreshTokenRepository.deleteExpired(user.getUsername(), Instant.now());
         saveRefreshToken(user.getUsername(), refreshToken);
 
         return new TokenResponse(accessToken, refreshToken);
     }
 
     public TokenResponse refresh(String username, String providedRefreshToken) {
-        String storedToken = null;
-
-        try {
-            storedToken = redisTemplate.opsForValue().get("refresh_tokens:" + username);
-        } catch (Exception e) {
-            System.err.println("Redis is down! Falling back to PostgreSQL for token check.");
-        }
-
-        if (storedToken == null) {
-            storedToken = refreshTokenRepository.findById(username)
-                    .filter(rt -> rt.getExpiryDate().isAfter(Instant.now()))
-                    .map(RefreshToken::getToken)
-                    .orElse(null);
-        }
-
-        if (storedToken == null || !storedToken.equals(providedRefreshToken)) {
-            throw new InvalidCredentialsException("Refresh token expired, invalid, or revoked. Please log in again.");
+        String owner = sessionOwner(providedRefreshToken);
+        if (owner == null || !owner.equals(username)) {
+            throw new InvalidCredentialsException(INVALID_REFRESH);
         }
         AppUser user = userRepository.findById(username)
                 .orElseThrow(() -> new InvalidCredentialsException("User not found"));
@@ -120,18 +119,19 @@ public class AuthService {
             System.err.println("Valkey/Redis is down! Relying on JWT claims.");
         }
 
+        // Rotate only this session; the user's other sessions (web, another phone) carry on
+        deleteSession(providedRefreshToken);
         saveRefreshToken(username, newRefreshToken);
 
         return new AuthDto.TokenResponse(newAccessToken, newRefreshToken);
     }
 
     // Web refresh: the HttpOnly cookie alone identifies the session, so the browser need not send a username.
-    // Every token is also saved to Postgres, so the lookup works even when Redis is down.
     public TokenResponse refreshByToken(String providedRefreshToken) {
-        String username = refreshTokenRepository.findByToken(providedRefreshToken)
-                .map(RefreshToken::getUsername)
-                .orElseThrow(() -> new InvalidCredentialsException(
-                        "Refresh token expired, invalid, or revoked. Please log in again."));
+        String username = sessionOwner(providedRefreshToken);
+        if (username == null) {
+            throw new InvalidCredentialsException(INVALID_REFRESH);
+        }
         return refresh(username, providedRefreshToken);
     }
 
@@ -153,41 +153,81 @@ public class AuthService {
         }
     }
 
-    public void logout(LogoutRequest request) {
-        revokeSessions(request.getUsername());
-    }
-
-    public void revokeSessions(String username) {
-        refreshTokenRepository.deleteById(username);
-
-        try {
-            redisTemplate.delete("refresh_tokens:" + username);
-            redisTemplate.delete("userPermissions::" + username + "_GET");
-            redisTemplate.delete("userPermissions::" + username + "_POST");
-            redisTemplate.delete("userPermissions::" + username + "_PUT");
-            redisTemplate.delete("userPermissions::" + username + "_DELETE");
-        } catch (Exception e) {
-            System.err.println("Redis is down during logout! User session completely revoked from DB.");
+    /**
+     * Ends the one session the refresh token belongs to (the web cookie or the phone's token). The
+     * endpoint is open, so a username alone is not enough to end anyone's sessions.
+     */
+    public void logout(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return;
+        }
+        String username = sessionOwner(refreshToken);
+        deleteSession(refreshToken);
+        if (username != null) {
+            permissionCacheEvictor.evictUser(username);
         }
     }
 
-    // Extracted helper method to keep code DRY (Don't Repeat Yourself)
-    private void saveRefreshToken(String username, String refreshToken) {
-        RefreshToken dbToken = new RefreshToken(
-                username,
-                refreshToken,
-                Instant.now().plus(Duration.ofDays(60))
-        );
-        refreshTokenRepository.save(dbToken);
-
+    /** Ends every session of the user, e.g. after a password change or when they are made Inactive. */
+    public void revokeSessions(String username) {
+        List<RefreshToken> sessions = refreshTokenRepository.findAllByUsername(username);
         try {
-            redisTemplate.opsForValue().set(
-                    "refresh_tokens:" + username,
-                    refreshToken,
-                    Duration.ofDays(60)
-            );
+            sessions.forEach(session -> redisTemplate.delete(REDIS_PREFIX + session.getTokenHash()));
+        } catch (Exception e) {
+            System.err.println("Redis is down during logout! User session completely revoked from DB.");
+        }
+        refreshTokenRepository.deleteAllByUsername(username);
+        permissionCacheEvictor.evictUser(username);
+    }
+
+    /** The user the refresh token belongs to, or null if it is unknown, expired or revoked. */
+    private String sessionOwner(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return null;
+        }
+        String hash = hash(refreshToken);
+        try {
+            String username = redisTemplate.opsForValue().get(REDIS_PREFIX + hash);
+            if (username != null) {
+                return username;
+            }
+        } catch (Exception e) {
+            System.err.println("Redis is down! Falling back to PostgreSQL for token check.");
+        }
+        return refreshTokenRepository.findById(hash)
+                .filter(session -> session.getExpiryDate().isAfter(Instant.now()))
+                .map(RefreshToken::getUsername)
+                .orElse(null);
+    }
+
+    private void deleteSession(String refreshToken) {
+        String hash = hash(refreshToken);
+        refreshTokenRepository.deleteById(hash);
+        try {
+            redisTemplate.delete(REDIS_PREFIX + hash);
+        } catch (Exception e) {
+            System.err.println("Redis is down! Refresh token removed from DB only.");
+        }
+    }
+
+    // Every token is also saved to Postgres, so checks work even when Redis is down
+    private void saveRefreshToken(String username, String refreshToken) {
+        String hash = hash(refreshToken);
+        refreshTokenRepository.save(new RefreshToken(hash, username, Instant.now().plus(SESSION_LIFETIME)));
+        try {
+            redisTemplate.opsForValue().set(REDIS_PREFIX + hash, username, SESSION_LIFETIME);
         } catch (Exception e) {
             System.err.println("Redis is down! Refresh token saved to DB only.");
+        }
+    }
+
+    // Refresh tokens are random UUIDs, so a plain SHA-256 is enough to keep stored values unusable
+    static String hash(String refreshToken) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(refreshToken.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
         }
     }
 

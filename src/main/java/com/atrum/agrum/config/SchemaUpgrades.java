@@ -49,6 +49,12 @@ class SchemaUpgrades {
             jdbcTemplate.execute("DROP TABLE divisions");
             log.info("Schema upgrade: dropped table divisions");
         }
+
+        // One refresh token per user, replaced by refresh_sessions (one per login). Users log in again once
+        if (tableExists("refresh_tokens")) {
+            jdbcTemplate.execute("DROP TABLE refresh_tokens");
+            log.info("Schema upgrade: dropped table refresh_tokens; existing sessions must log in again");
+        }
     }
 
     private void dropColumn(String table, String column) {
