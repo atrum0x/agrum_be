@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.Cache;
 import org.springframework.cache.CacheManager;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -15,7 +16,8 @@ import java.util.function.Consumer;
 
 /**
  * Clears the cached "userPermissions" entries (key {@code username_METHOD}, see
- * PermissionSetRepository) when grants change, so a revoke takes effect on the next request
+ * PermissionSetRepository) when grants change, and the cached site list ({@code userEstates::username},
+ * read by EstateSecurityAspect) when site grants change, so a change takes effect on the next request
  * instead of when the cache entry expires.
  *
  * <p>Evicts after the transaction commits: evicting earlier would let a request in between cache
@@ -30,6 +32,7 @@ public class PermissionCacheEvictor {
     private static final List<String> METHODS = List.of("GET", "POST", "PUT", "PATCH", "DELETE");
 
     private final CacheManager cacheManager;
+    private final StringRedisTemplate redisTemplate;
 
     /** A user's grants changed (permission sets granted or revoked, account deleted). */
     public void evictUsers(Collection<String> usernames) {
@@ -39,6 +42,18 @@ public class PermissionCacheEvictor {
 
     public void evictUser(String username) {
         evictUsers(List.of(username));
+    }
+
+    /** The sites granted to a user changed. */
+    public void evictUserEstates(String username) {
+        afterCommit(() -> {
+            try {
+                redisTemplate.delete(EstateSecurityAspect.CACHE_PREFIX + username);
+            } catch (RuntimeException e) {
+                log.warn("Could not evict the site list of {}; it may stay stale until it expires. Reason: {}",
+                        username, e.getMessage());
+            }
+        });
     }
 
     /** A permission set's endpoints changed: every user holding it is affected. */

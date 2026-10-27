@@ -12,6 +12,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 
@@ -21,6 +22,9 @@ public class EstateSecurityAspect {
 
     // Estate ids are never blank, so this matches no rows
     private static final String NO_ESTATE = "";
+    // Comma-separated granted estate ids; "" means none
+    public static final String CACHE_PREFIX = "userEstates::";
+    private static final Duration CACHE_TTL = Duration.ofDays(1);
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -39,45 +43,50 @@ public class EstateSecurityAspect {
     @Before("@annotation(org.springframework.transaction.annotation.Transactional) || @within(org.springframework.transaction.annotation.Transactional)")
     public void enableEstateFilter() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+            return;
+        }
+        String username = auth.getName();
+        // Only the superuser sees every estate
+        if (superUsername.equals(username)) {
+            return;
+        }
 
-        if (auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getPrincipal())) {
-            String username = auth.getName();
-            List<String> allowedEstates = null;
+        // The current grants: Redis, else the DB. The token's "estates" claim is not used, because it
+        // only changes at the next refresh; PermissionCacheEvictor clears this cache when grants change
+        List<String> allowedEstates = cachedEstates(username);
+        if (allowedEstates == null) {
+            allowedEstates = userRepository.findAllowedEstateIdsByUsername(username);
+            cacheEstates(username, allowedEstates);
+        }
 
-            // Step 1: Fast Path (0ms) -> Read from SecurityContext details (JWT)
-            if (auth.getDetails() instanceof List<?>) {
-                allowedEstates = (List<String>) auth.getDetails();
-            }
+        // Anyone with no granted estates sees none: "IN ()" is invalid SQL, so filter on an estate id
+        // that cannot exist instead
+        if (allowedEstates.isEmpty()) {
+            allowedEstates = List.of(NO_ESTATE);
+        }
+        Session session = entityManager.unwrap(Session.class);
+        session.enableFilter("estateSecurityFilter")
+                .setParameterList("allowedEstates", allowedEstates);
+    }
 
-            // Step 2: Fallback to Valkey / Redis if missing in context
-            if (allowedEstates == null || allowedEstates.isEmpty()) {
-                try {
-                    String cachedEstates = redisTemplate.opsForValue().get("userEstates::" + username);
-                    if (cachedEstates != null && !cachedEstates.isBlank()) {
-                        allowedEstates = Arrays.asList(cachedEstates.split(","));
-                    }
-                } catch (Exception e) {
-                    System.err.println("Valkey/Redis down during estate check! Falling back to DB.");
-                }
+    private List<String> cachedEstates(String username) {
+        try {
+            String cached = redisTemplate.opsForValue().get(CACHE_PREFIX + username);
+            if (cached != null) {
+                return cached.isEmpty() ? List.of() : Arrays.asList(cached.split(","));
             }
+        } catch (Exception e) {
+            System.err.println("Valkey/Redis down during estate check! Falling back to DB.");
+        }
+        return null;
+    }
 
-            // Step 3: Final Fallback -> Database
-            if (allowedEstates == null || allowedEstates.isEmpty()) {
-                allowedEstates = userRepository.findAllowedEstateIdsByUsername(username);
-            }
-
-            // Step 4: Apply the Hibernate Row-Level Security Filter.
-            // Only the superuser sees every estate. Anyone else with no granted estates sees none:
-            // "IN ()" is invalid SQL, so filter on an estate id that cannot exist instead.
-            if (superUsername.equals(username)) {
-                return;
-            }
-            if (allowedEstates == null || allowedEstates.isEmpty()) {
-                allowedEstates = List.of(NO_ESTATE);
-            }
-            Session session = entityManager.unwrap(Session.class);
-            session.enableFilter("estateSecurityFilter")
-                    .setParameterList("allowedEstates", allowedEstates);
+    private void cacheEstates(String username, List<String> estates) {
+        try {
+            redisTemplate.opsForValue().set(CACHE_PREFIX + username, String.join(",", estates), CACHE_TTL);
+        } catch (Exception e) {
+            // The DB answer is used without caching
         }
     }
 }
