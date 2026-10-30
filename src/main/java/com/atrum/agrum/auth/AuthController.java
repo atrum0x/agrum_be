@@ -20,6 +20,7 @@ import com.atrum.agrum.exception.InvalidCredentialsException;
 public class AuthController {
 
     private final AuthService authService;
+    private final BiometricLoginService biometricLoginService;
     private final boolean cookieSecure;
     private final String cookieSameSite;
     private final String cookieDomain;
@@ -28,6 +29,7 @@ public class AuthController {
     private final Duration webSessionIdle;
 
     public AuthController(AuthService authService,
+                          BiometricLoginService biometricLoginService,
                           @Value("${app.cookie.secure}") boolean cookieSecure,
                           @Value("${app.cookie.same-site}") String cookieSameSite,
                           @Value("${app.cookie.domain}") String cookieDomain,
@@ -37,6 +39,7 @@ public class AuthController {
             throw new IllegalStateException("COOKIE_SAME_SITE=None requires COOKIE_SECURE=true");
         }
         this.authService = authService;
+        this.biometricLoginService = biometricLoginService;
         this.cookieSecure = cookieSecure;
         this.cookieSameSite = cookieSameSite;
         this.cookieDomain = cookieDomain;
@@ -59,6 +62,33 @@ public class AuthController {
         TokenResponse response = authService.login(request);
         // Returns the tokens directly in the JSON payload for Flutter to save
         return ResponseEntity.ok(response);
+    }
+
+    // Fingerprint login (phone only): set up with the password once, then sign a one-time challenge
+    @Operation(summary = "Set up fingerprint login on a phone")
+    @PostMapping("/biometric/register/mobile")
+    public ResponseEntity<BiometricRegisterResponse> registerBiometric(@RequestBody BiometricRegisterRequest request) {
+        String keyId = biometricLoginService.register(request.getUsername(), request.getPassword(), request.getPublicKey());
+        return ResponseEntity.ok(new BiometricRegisterResponse(keyId));
+    }
+
+    @Operation(summary = "Get a one-time challenge for fingerprint login")
+    @PostMapping("/biometric/challenge/mobile")
+    public ResponseEntity<BiometricChallengeResponse> biometricChallenge(@RequestBody BiometricKeyRequest request) {
+        return ResponseEntity.ok(new BiometricChallengeResponse(biometricLoginService.challenge(request.getKeyId())));
+    }
+
+    @Operation(summary = "Log in to the mobile app with a fingerprint")
+    @PostMapping("/login/biometric/mobile")
+    public ResponseEntity<TokenResponse> loginBiometric(@RequestBody BiometricLoginRequest request) {
+        return ResponseEntity.ok(biometricLoginService.login(request.getKeyId(), request.getSignature()));
+    }
+
+    @Operation(summary = "Turn off fingerprint login on a phone")
+    @PostMapping("/biometric/remove/mobile")
+    public ResponseEntity<?> removeBiometric(@RequestBody BiometricKeyRequest request) {
+        biometricLoginService.remove(request.getKeyId());
+        return ResponseEntity.ok("Fingerprint login turned off.");
     }
 
     // Web Refresh (Expects HttpOnly cookie, returns new HttpOnly cookies)

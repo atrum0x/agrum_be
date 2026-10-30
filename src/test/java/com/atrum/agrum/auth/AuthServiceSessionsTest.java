@@ -48,6 +48,8 @@ class AuthServiceSessionsTest {
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
     @Mock
+    private BiometricKeyRepository biometricKeyRepository;
+    @Mock
     private PasswordEncoder passwordEncoder;
     @Mock
     private JwtTokenProvider tokenProvider;
@@ -65,7 +67,7 @@ class AuthServiceSessionsTest {
 
     @BeforeEach
     void setUp() {
-        service = new AuthService(userRepository, refreshTokenRepository, passwordEncoder, tokenProvider,
+        service = new AuthService(userRepository, refreshTokenRepository, biometricKeyRepository, passwordEncoder, tokenProvider,
                 redisTemplate, permissionChecker, permissionCacheEvictor);
         ReflectionTestUtils.setField(service, "superUsername", "admin");
 
@@ -213,6 +215,8 @@ class AuthServiceSessionsTest {
                     .isInstanceOf(InvalidCredentialsException.class);
         }
         assertThat(service.refreshByToken(otherUser.getRefreshToken(), WEB)).isNotNull();
+        // A password change also ends fingerprint login on the user's phones
+        verify(biometricKeyRepository).deleteAllByUsername("SUP01");
     }
 
     @Test

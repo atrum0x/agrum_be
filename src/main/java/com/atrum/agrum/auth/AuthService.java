@@ -31,6 +31,7 @@ public class AuthService {
 
     private final AppUserRepository userRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final BiometricKeyRepository biometricKeyRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final StringRedisTemplate redisTemplate;
@@ -48,6 +49,7 @@ public class AuthService {
 
     public AuthService(AppUserRepository userRepository,
                        RefreshTokenRepository refreshTokenRepository,
+                       BiometricKeyRepository biometricKeyRepository,
                        PasswordEncoder passwordEncoder,
                        JwtTokenProvider tokenProvider,
                        StringRedisTemplate redisTemplate,
@@ -55,6 +57,7 @@ public class AuthService {
                        PermissionCacheEvictor permissionCacheEvictor) {
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.biometricKeyRepository = biometricKeyRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
         this.redisTemplate = redisTemplate;
@@ -68,15 +71,26 @@ public class AuthService {
 
     /** {@code sessionLifetime}: how long the refresh token lives; each refresh starts it again. */
     public TokenResponse login(LoginRequest request, Duration sessionLifetime) {
+        return issueTokens(authenticate(request.getUsername(), request.getPassword()), sessionLifetime);
+    }
+
+    /** The user whose username and password these are (LG-03), if they may log in (LG-04, LG-05). */
+    public AppUser authenticate(String username, String password) {
         // Not case-sensitive (FSD 2.1): an exact match first, then any case
-        String typed = request.getUsername() == null ? "" : request.getUsername().trim();
+        String typed = username == null ? "" : username.trim();
         AppUser user = userRepository.findById(typed)
                 .or(() -> userRepository.findFirstByUsernameIgnoreCase(typed))
                 .orElseThrow(() -> new InvalidCredentialsException("Username or password is incorrect."));
 
-        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+        if (password == null || !passwordEncoder.matches(password, user.getPassword())) {
             throw new InvalidCredentialsException("Username or password is incorrect.");
         }
+        checkCanLogIn(user);
+        return user;
+    }
+
+    /** Starts a new login session for a user already proven by a password or a fingerprint key. */
+    public TokenResponse issueTokens(AppUser user, Duration sessionLifetime) {
         checkCanLogIn(user);
         List<String> estateIds = user.getAllowedEstates().stream()
                 .map(Estate::getId)
@@ -184,8 +198,12 @@ public class AuthService {
         }
     }
 
-    /** Ends every session of the user, e.g. after a password change or when they are made Inactive. */
+    /**
+     * Ends every session of the user, e.g. after a password change or when they are made Inactive.
+     * Fingerprint login keys go too, so the new password must be typed once before using them again.
+     */
     public void revokeSessions(String username) {
+        biometricKeyRepository.deleteAllByUsername(username);
         List<RefreshToken> sessions = refreshTokenRepository.findAllByUsername(username);
         try {
             sessions.forEach(session -> redisTemplate.delete(REDIS_PREFIX + session.getTokenHash()));

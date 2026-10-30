@@ -25,6 +25,46 @@ public class AuthDto {
         private String refreshToken;
     }
 
+    /** Sets up fingerprint login on a phone: the password again, and the Keystore key's public half. */
+    @Getter
+    public static class BiometricRegisterRequest {
+        private String username;
+        private String password;
+        // X.509 SubjectPublicKeyInfo, base64, EC P-256
+        private String publicKey;
+    }
+
+    @Getter
+    public static class BiometricRegisterResponse {
+        private final String keyId;
+
+        public BiometricRegisterResponse(String keyId) {
+            this.keyId = keyId;
+        }
+    }
+
+    @Getter
+    public static class BiometricKeyRequest {
+        private String keyId;
+    }
+
+    @Getter
+    public static class BiometricChallengeResponse {
+        // The phone signs "agrum-login:<keyId>:<challenge>"; usable once, for 2 minutes
+        private final String challenge;
+
+        public BiometricChallengeResponse(String challenge) {
+            this.challenge = challenge;
+        }
+    }
+
+    @Getter
+    public static class BiometricLoginRequest {
+        private String keyId;
+        // SHA256withECDSA, DER, base64
+        private String signature;
+    }
+
     @Getter
     public static class TokenResponse {
         private String accessToken;
