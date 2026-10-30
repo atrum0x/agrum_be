@@ -26,6 +26,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -60,7 +61,7 @@ class FaceTemplateServiceTest {
     void aBadTemplateIsRejectedAndTheOthersAreStillSaved() {
         when(employeeRepository.existsById("E404")).thenReturn(false);
         FaceTemplateDto shortEmbedding = new FaceTemplateDto("E002", FaceTemplateService.MODEL,
-                Base64.getEncoder().encodeToString(new byte[10]), 5, T0, null);
+                Base64.getEncoder().encodeToString(new byte[10]), 5, T0, null, null);
 
         List<SyncFaceTemplateResult> results = service.syncTemplates(new SyncFaceTemplateRequest(List.of(
                 template("E001", T0), shortEmbedding, template("E404", T0), template("E003", T0))));
@@ -83,6 +84,27 @@ class FaceTemplateServiceTest {
     }
 
     @Test
+    void theFacePhotoIsKept_andABadOneIsLeftOutWithoutRejectingTheFace() {
+        String jpeg = Base64.getEncoder().encodeToString(new byte[]{(byte) 0xFF, (byte) 0xD8, 1});
+        FaceTemplateDto withPhoto = withPhoto(template("E001", T0), jpeg);
+        FaceTemplateDto badPhoto = withPhoto(template("E002", T0), "not base64!");
+
+        List<SyncFaceTemplateResult> results =
+                service.syncTemplates(new SyncFaceTemplateRequest(List.of(withPhoto, badPhoto)));
+
+        assertThat(results).extracting(SyncFaceTemplateResult::status).containsOnly(SyncStatus.SENT);
+        ArgumentCaptor<FaceTemplate> saved = ArgumentCaptor.forClass(FaceTemplate.class);
+        verify(faceTemplateRepository, times(2)).save(saved.capture());
+        assertThat(saved.getAllValues().get(0).getPhoto()).hasSize(3);
+        assertThat(saved.getAllValues().get(1).getPhoto()).isNull();
+    }
+
+    private static FaceTemplateDto withPhoto(FaceTemplateDto t, String photo) {
+        return new FaceTemplateDto(t.employeeCode(), t.model(), t.embedding(), t.sampleCount(), t.registeredAt(),
+                null, photo);
+    }
+
+    @Test
     void anOlderRegistrationDoesNotReplaceANewerOne_butIsStillSent() {
         FaceTemplate newer = new FaceTemplate();
         newer.setEmployeeCode("E001");
@@ -99,7 +121,7 @@ class FaceTemplateServiceTest {
     @Test
     void anotherModelIsRejected() {
         FaceTemplateDto facenet = new FaceTemplateDto("E001", "facenet_128",
-                Base64.getEncoder().encodeToString(new byte[FaceTemplateService.EMBEDDING_BYTES]), 5, T0, null);
+                Base64.getEncoder().encodeToString(new byte[FaceTemplateService.EMBEDDING_BYTES]), 5, T0, null, null);
 
         List<SyncFaceTemplateResult> results = service.syncTemplates(new SyncFaceTemplateRequest(List.of(facenet)));
 
@@ -109,6 +131,6 @@ class FaceTemplateServiceTest {
 
     private static FaceTemplateDto template(String code, Instant registeredAt) {
         return new FaceTemplateDto(code, FaceTemplateService.MODEL,
-                Base64.getEncoder().encodeToString(new byte[FaceTemplateService.EMBEDDING_BYTES]), 5, registeredAt, null);
+                Base64.getEncoder().encodeToString(new byte[FaceTemplateService.EMBEDDING_BYTES]), 5, registeredAt, null, null);
     }
 }

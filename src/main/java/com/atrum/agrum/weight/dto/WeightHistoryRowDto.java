@@ -5,6 +5,7 @@ import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.weight.ApprovalStatus;
 import com.atrum.agrum.weight.ChangeType;
 import com.atrum.agrum.weight.EntryType;
+import com.atrum.agrum.weight.IdentifiedBy;
 import com.atrum.agrum.weight.LineState;
 import com.atrum.agrum.weight.WeightChangeRequest;
 import com.atrum.agrum.weight.WeightRecord;
@@ -34,6 +35,9 @@ public record WeightHistoryRowDto(
         String cpName,
         String workType,
         EntryType entryType,
+        // How the phone picked the worker; null for older weighings. FACE rows may have a photo
+        IdentifiedBy identifiedBy,
+        BigDecimal faceSimilarity,
         BigDecimal originalWeightKg,
         // Weight in use
         BigDecimal weightKg,
@@ -70,6 +74,8 @@ public record WeightHistoryRowDto(
                 record.getCollectionPoint().getName(),
                 record.getWorkType().getWorkType(),
                 record.getEntryType(),
+                record.getIdentifiedBy(),
+                record.getFaceSimilarity(),
                 record.getOriginalWeightKg(),
                 record.getWeightKg(),
                 record.getVariancePercent(),

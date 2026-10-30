@@ -10,7 +10,7 @@ import java.time.Instant;
 
 /**
  * One worker's face for recognition on the weighing screen: the mean ArcFace embedding of the
- * poses captured on a phone. Registering again replaces it. No photo is sent to the server.
+ * poses captured on a phone. Registering again replaces it.
  */
 @Entity
 @Table(name = "face_templates")
@@ -30,6 +30,10 @@ public class FaceTemplate {
     // 512 float32 values, little-endian
     @Column(name = "embedding", nullable = false)
     private byte[] embedding;
+
+    // The face from the "Look straight ahead" pose, a small JPEG; shown next to weighing photos
+    @Column(name = "photo")
+    private byte[] photo;
 
     @Column(name = "sample_count", nullable = false)
     private int sampleCount;

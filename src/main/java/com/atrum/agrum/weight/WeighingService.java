@@ -3,6 +3,7 @@ package com.atrum.agrum.weight;
 import com.atrum.agrum.attendance.Attendance;
 import com.atrum.agrum.attendance.AttendanceRepository;
 import com.atrum.agrum.estate.Estate;
+import com.atrum.agrum.face.FacePhotos;
 import com.atrum.agrum.exception.InsufficientPermissionException;
 import com.atrum.agrum.security.PermissionChecker;
 import com.atrum.agrum.user.AppUser;
@@ -13,6 +14,8 @@ import com.atrum.agrum.weight.dto.WeighableWorkerDto;
 import com.atrum.agrum.weight.dto.WeighingDefaultsDto;
 import com.atrum.agrum.weight.dto.WeightRecordDto;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -35,12 +38,15 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class WeighingService {
 
+    private static final Logger log = LoggerFactory.getLogger(WeighingService.class);
+
     // A phone clock slightly ahead of the server is not a future record
     private static final Duration MAX_CLOCK_SKEW = Duration.ofMinutes(5);
     // Keeps the IN list well under Postgres' bind parameter limit
     private static final int LOOKUP_CHUNK_SIZE = 1000;
 
     private final WeightRecordRepository weightRecordRepository;
+    private final WeightPhotoRepository weightPhotoRepository;
     private final AttendanceRepository attendanceRepository;
     private final UserService userService;
     private final PermissionChecker permissionChecker;
@@ -176,8 +182,37 @@ public class WeighingService {
         record.setVariancePercent(variance);
         record.setWeightAfterVariance(WeightCalculator.afterVariance(request.weightKg(), variance));
         record.setEntrySequence(entrySequence);
+        boolean byFace = request.identifiedBy() == IdentifiedBy.FACE;
+        record.setIdentifiedBy(request.identifiedBy());
+        record.setFaceSimilarity(byFace ? similarity(request.faceSimilarity()) : null);
         // The id is assigned, but the null version makes save() insert rather than merge
-        return weightRecordRepository.saveAndFlush(record);
+        WeightRecord saved = weightRecordRepository.saveAndFlush(record);
+        if (byFace) {
+            savePhoto(saved.getWeightId(), request.photo());
+        }
+        return saved;
+    }
+
+    // A bad photo never costs the weighing: it is left out and logged
+    private void savePhoto(UUID weightId, byte[] photo) {
+        if (photo == null) {
+            return;
+        }
+        if (!FacePhotos.isValid(photo)) {
+            log.warn("Weighing {}: face photo left out, not a JPEG of up to 200 KB", weightId);
+            return;
+        }
+        WeightPhoto weightPhoto = new WeightPhoto();
+        weightPhoto.setWeightId(weightId);
+        weightPhoto.setPhoto(photo);
+        weightPhotoRepository.save(weightPhoto);
+    }
+
+    private static BigDecimal similarity(BigDecimal value) {
+        if (value == null || value.signum() < 0 || value.compareTo(BigDecimal.ONE) > 0) {
+            return null;
+        }
+        return value.setScale(3, java.math.RoundingMode.HALF_UP);
     }
 
     /**

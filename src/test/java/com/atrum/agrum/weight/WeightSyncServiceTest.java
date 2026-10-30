@@ -64,6 +64,6 @@ class WeightSyncServiceTest {
 
     private static RecordWeightRequest record() {
         return new RecordWeightRequest(UUID.randomUUID(), UUID.randomUUID(), "E001", Instant.now(),
-                new BigDecimal("12.00"), EntryType.AUTOMATIC, null, null);
+                new BigDecimal("12.00"), EntryType.AUTOMATIC, null, null, null, null, null);
     }
 }

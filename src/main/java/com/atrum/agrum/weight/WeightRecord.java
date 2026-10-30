@@ -107,6 +107,15 @@ public class WeightRecord extends EstateSecuredEntity {
     @Column(name = "entry_type", nullable = false, length = 10, updatable = false)
     private EntryType entryType;
 
+    // How the phone picked the worker; null for weighings sent before this was recorded
+    @Enumerated(EnumType.STRING)
+    @Column(name = "identified_by", length = 10, updatable = false)
+    private IdentifiedBy identifiedBy;
+
+    // Face match score (cosine similarity, 0-1) when identifiedBy is FACE
+    @Column(name = "face_similarity", precision = 4, scale = 3, updatable = false)
+    private BigDecimal faceSimilarity;
+
     // The weight as first recorded; never changes
     @Column(name = "original_weight_kg", nullable = false, precision = 10, scale = 2, updatable = false)
     private BigDecimal originalWeightKg;
