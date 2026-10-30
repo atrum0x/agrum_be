@@ -1,7 +1,9 @@
 package com.atrum.agrum.face;
 
 import com.atrum.agrum.attendance.dto.SyncStatus;
+import com.atrum.agrum.employee.Employee;
 import com.atrum.agrum.employee.EmployeeRepository;
+import com.atrum.agrum.face.dto.FaceRegistrationDto;
 import com.atrum.agrum.face.dto.FaceTemplateDto;
 import com.atrum.agrum.face.dto.SyncFaceTemplateRequest;
 import com.atrum.agrum.face.dto.SyncFaceTemplateResult;
@@ -127,6 +129,93 @@ class FaceTemplateServiceTest {
 
         assertThat(results.getFirst().status()).isEqualTo(SyncStatus.REJECTED);
         assertThat(results.getFirst().reason()).isEqualTo("Face model facenet_128 is not supported.");
+    }
+
+    @Test
+    void aFaceAlreadyRegisteredToAnotherEmployeeIsRejected() {
+        when(faceTemplateRepository.findAll()).thenReturn(List.of(stored("E009", 0, T0)));
+        Employee owner = new Employee();
+        owner.setFirstName("Randev");
+        owner.setLastName("Perera");
+        when(employeeRepository.findById("E009")).thenReturn(Optional.of(owner));
+
+        List<SyncFaceTemplateResult> results =
+                service.syncTemplates(new SyncFaceTemplateRequest(List.of(face("E001", 0, T0.plusSeconds(60)))));
+
+        assertThat(results.getFirst().status()).isEqualTo(SyncStatus.REJECTED);
+        assertThat(results.getFirst().reason()).isEqualTo(
+                "This face is already registered to Randev Perera (E009). A face can belong to only one employee.");
+        verify(faceTemplateRepository, never()).save(any());
+    }
+
+    @Test
+    void registeringTheSameEmployeeAgainIsNotADuplicate() {
+        FaceTemplate own = stored("E001", 0, T0);
+        when(faceTemplateRepository.findAll()).thenReturn(List.of(own));
+        when(faceTemplateRepository.findById("E001")).thenReturn(Optional.of(own));
+
+        List<SyncFaceTemplateResult> results =
+                service.syncTemplates(new SyncFaceTemplateRequest(List.of(face("E001", 0, T0.plusSeconds(60)))));
+
+        assertThat(results.getFirst().status()).isEqualTo(SyncStatus.SENT);
+        verify(faceTemplateRepository).save(any());
+    }
+
+    @Test
+    void anotherEmployeesDifferentFaceIsFine() {
+        when(faceTemplateRepository.findAll()).thenReturn(List.of(stored("E009", 1, T0)));
+
+        List<SyncFaceTemplateResult> results =
+                service.syncTemplates(new SyncFaceTemplateRequest(List.of(face("E001", 0, T0))));
+
+        assertThat(results.getFirst().status()).isEqualTo(SyncStatus.SENT);
+    }
+
+    @Test
+    void theEmployeePageGetsWhenAndByWhom_andWhetherThereIsAPhoto() {
+        FaceTemplate template = stored("E001", 0, T0);
+        template.setRegisteredBy("sup1");
+        template.setSampleCount(5);
+        when(faceTemplateRepository.findById("E001")).thenReturn(Optional.of(template));
+
+        FaceRegistrationDto registration = service.getRegistration("E001").orElseThrow();
+
+        assertThat(registration.registeredAt()).isEqualTo(T0);
+        assertThat(registration.registeredBy()).isEqualTo("sup1");
+        assertThat(registration.sampleCount()).isEqualTo(5);
+        assertThat(registration.hasPhoto()).isFalse();
+        assertThat(service.getRegistration("NOPE")).isEmpty();
+    }
+
+    @Test
+    void aFaceCanBeRemoved() {
+        when(faceTemplateRepository.existsById("E001")).thenReturn(true);
+
+        assertThat(service.removeTemplate("E001")).isTrue();
+        verify(faceTemplateRepository).deleteById("E001");
+        assertThat(service.removeTemplate("NOPE")).isFalse();
+    }
+
+    // A unit embedding pointing along one axis: the same axis is the same face, another axis a different one
+    private static byte[] unit(int axis) {
+        java.nio.ByteBuffer buffer = java.nio.ByteBuffer.allocate(FaceTemplateService.EMBEDDING_BYTES)
+                .order(java.nio.ByteOrder.LITTLE_ENDIAN);
+        buffer.putFloat(axis * Float.BYTES, 1f);
+        return buffer.array();
+    }
+
+    private static FaceTemplate stored(String code, int axis, Instant registeredAt) {
+        FaceTemplate template = new FaceTemplate();
+        template.setEmployeeCode(code);
+        template.setModel(FaceTemplateService.MODEL);
+        template.setEmbedding(unit(axis));
+        template.setRegisteredAt(registeredAt);
+        return template;
+    }
+
+    private static FaceTemplateDto face(String code, int axis, Instant registeredAt) {
+        return new FaceTemplateDto(code, FaceTemplateService.MODEL, Base64.getEncoder().encodeToString(unit(axis)), 5,
+                registeredAt, null, null);
     }
 
     private static FaceTemplateDto template(String code, Instant registeredAt) {
