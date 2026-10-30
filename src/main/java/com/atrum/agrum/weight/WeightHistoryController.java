@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -107,6 +108,14 @@ public class WeightHistoryController {
         return weightExportService.weightHistory(weightHistoryService.searchAllMine(new WeightHistorySearchRequest(
                 dateFrom, dateTo, null, supervisor, estateId, cpCode, workType,
                 attendanceCategory, entryType, lineState, approvalStatus))).toResponse();
+    }
+
+    @Operation(summary = "View the face photo of a weighing where the phone identified the worker by face")
+    @GetMapping(value = "/{weightId}/photo", produces = MediaType.IMAGE_JPEG_VALUE)
+    public ResponseEntity<byte[]> getWeightPhoto(@PathVariable UUID weightId) {
+        return weightHistoryService.getPhoto(weightId)
+                .map(photo -> ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(photo))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @Operation(summary = "View the change history of a weighing")

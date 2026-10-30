@@ -99,7 +99,32 @@ public class FaceTemplateService {
         template.setSampleCount(record.sampleCount());
         template.setRegisteredAt(record.registeredAt());
         template.setRegisteredBy(username);
+        template.setPhoto(photo(code, record.photo()));
         faceTemplateRepository.save(template);
+    }
+
+    /** The registered face photo of a worker, if one was sent. */
+    @Transactional(readOnly = true)
+    public Optional<byte[]> getPhoto(String employeeCode) {
+        return faceTemplateRepository.findById(employeeCode).map(FaceTemplate::getPhoto);
+    }
+
+    // A bad photo never costs the registration: it is left out and logged
+    private static byte[] photo(String code, String photo) {
+        if (photo == null) {
+            return null;
+        }
+        byte[] bytes;
+        try {
+            bytes = Base64.getDecoder().decode(photo);
+        } catch (IllegalArgumentException e) {
+            bytes = null;
+        }
+        if (!FacePhotos.isValid(bytes)) {
+            log.warn("Face of {}: photo left out, not a JPEG of up to 200 KB", code);
+            return null;
+        }
+        return bytes;
     }
 
     private static byte[] decode(String embedding) {
@@ -122,6 +147,7 @@ public class FaceTemplateService {
                 Base64.getEncoder().encodeToString(template.getEmbedding()),
                 template.getSampleCount(),
                 template.getRegisteredAt(),
-                template.getRegisteredBy());
+                template.getRegisteredBy(),
+                null);
     }
 }

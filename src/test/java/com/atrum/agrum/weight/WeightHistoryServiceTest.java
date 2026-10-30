@@ -37,6 +37,8 @@ class WeightHistoryServiceTest {
     @Mock
     private WeightChangeRequestRepository weightChangeRequestRepository;
     @Mock
+    private WeightPhotoRepository weightPhotoRepository;
+    @Mock
     private UserService userService;
 
     private WeightHistoryService weightHistoryService;
@@ -44,7 +46,7 @@ class WeightHistoryServiceTest {
 
     @BeforeEach
     void setUp() {
-        weightHistoryService = new WeightHistoryService(weightRecordRepository, weightChangeRequestRepository,
+        weightHistoryService = new WeightHistoryService(weightRecordRepository, weightChangeRequestRepository, weightPhotoRepository,
                 userService, Clock.fixed(Instant.parse("2026-10-24T04:30:00Z"), ZoneId.of("Asia/Colombo")));
         Employee employee = new Employee();
         employee.setEmployeeCode("E001");

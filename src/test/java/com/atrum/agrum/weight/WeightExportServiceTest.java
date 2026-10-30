@@ -114,7 +114,7 @@ class WeightExportServiceTest {
     private static WeightHistoryRowDto historyRow(LineState lineState, ApprovalStatus status, boolean withChange) {
         return new WeightHistoryRowDto(UUID.randomUUID(), LocalDate.of(2026, 10, 24),
                 Instant.parse("2026-10-24T04:45:00Z"), 2, "E001", "Kamala Perera", AttendanceCategory.REGULAR,
-                "sup1", "Sunil Silva", "S01", "Estate One", "CP1", "Main CP", "PLUCKING", EntryType.AUTOMATIC,
+                "sup1", "Sunil Silva", "S01", "Estate One", "CP1", "Main CP", "PLUCKING", EntryType.AUTOMATIC, null, null,
                 new BigDecimal("13.00"), new BigDecimal("14.00"), new BigDecimal("2.00"), new BigDecimal("14.28"),
                 lineState, status,
                 withChange ? 7L : null,

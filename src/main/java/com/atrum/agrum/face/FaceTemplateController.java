@@ -7,7 +7,9 @@ import com.atrum.agrum.security.ProjectionGroup;
 import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,6 +29,14 @@ public class FaceTemplateController {
     @GetMapping
     public ResponseEntity<List<FaceTemplateDto>> getTemplates() {
         return ResponseEntity.ok(faceTemplateService.getTemplates());
+    }
+
+    @Operation(summary = "View a worker's registered face photo, e.g. next to a weighing photo in Weight History")
+    @GetMapping(value = "/{employeeCode}/photo", produces = MediaType.IMAGE_JPEG_VALUE)
+    public ResponseEntity<byte[]> getFacePhoto(@PathVariable String employeeCode) {
+        return faceTemplateService.getPhoto(employeeCode)
+                .map(photo -> ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).body(photo))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @Operation(summary = "Send faces registered on the phone; registering a worker again replaces their face. Give to users who register workers' faces")

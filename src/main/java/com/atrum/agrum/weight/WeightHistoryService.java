@@ -22,6 +22,7 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -41,6 +42,7 @@ public class WeightHistoryService {
 
     private final WeightRecordRepository weightRecordRepository;
     private final WeightChangeRequestRepository weightChangeRequestRepository;
+    private final WeightPhotoRepository weightPhotoRepository;
     private final UserService userService;
     private final Clock clock;
 
@@ -87,6 +89,14 @@ public class WeightHistoryService {
         return rows.stream()
                 .map(record -> WeightHistoryRowDto.from(record, latest.get(record.getWeightId())))
                 .toList();
+    }
+
+    /** The face the phone recognised for a weighing; empty when there is none or the weighing isn't visible. */
+    @Transactional(readOnly = true)
+    public Optional<byte[]> getPhoto(UUID weightId) {
+        return weightRecordRepository.findVisibleById(weightId)
+                .flatMap(record -> weightPhotoRepository.findById(record.getWeightId()))
+                .map(WeightPhoto::getPhoto);
     }
 
     /** View History: original weighing and every request, newest first. Refused for an invisible weighing. */

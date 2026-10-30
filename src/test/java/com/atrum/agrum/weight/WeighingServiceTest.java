@@ -15,6 +15,7 @@ import com.atrum.agrum.workType.WorkType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -51,6 +52,8 @@ class WeighingServiceTest {
     @Mock
     private WeightRecordRepository weightRecordRepository;
     @Mock
+    private WeightPhotoRepository weightPhotoRepository;
+    @Mock
     private AttendanceRepository attendanceRepository;
     @Mock
     private UserService userService;
@@ -65,7 +68,7 @@ class WeighingServiceTest {
 
     @BeforeEach
     void setUp() {
-        weighingService = new WeighingService(weightRecordRepository, attendanceRepository, userService,
+        weighingService = new WeighingService(weightRecordRepository, weightPhotoRepository, attendanceRepository, userService,
                 permissionChecker, Clock.fixed(NOW, COLOMBO));
 
         site = new Estate();
@@ -182,7 +185,7 @@ class WeighingServiceTest {
     @Test
     void WE01_noWorker_isRejected() {
         RecordWeightRequest request = new RecordWeightRequest(UUID.randomUUID(), attendance.getAttendanceId(),
-                " ", NOW, new BigDecimal("12.00"), EntryType.AUTOMATIC, null, null);
+                " ", NOW, new BigDecimal("12.00"), EntryType.AUTOMATIC, null, null, null, null, null);
 
         assertThatThrownBy(() -> weighingService.recordWeight(request)).hasMessage(WeightMessages.WE_01_SELECT_WORKER);
     }
@@ -190,9 +193,9 @@ class WeighingServiceTest {
     @Test
     void TC47_WE02_attendanceOfAnotherWorkerOrInvisible_isRejected() {
         RecordWeightRequest otherWorker = new RecordWeightRequest(UUID.randomUUID(), attendance.getAttendanceId(),
-                "E002", NOW, new BigDecimal("12.00"), EntryType.AUTOMATIC, null, null);
+                "E002", NOW, new BigDecimal("12.00"), EntryType.AUTOMATIC, null, null, null, null, null);
         RecordWeightRequest unknownAttendance = new RecordWeightRequest(UUID.randomUUID(), UUID.randomUUID(),
-                "E001", NOW, new BigDecimal("12.00"), EntryType.AUTOMATIC, null, null);
+                "E001", NOW, new BigDecimal("12.00"), EntryType.AUTOMATIC, null, null, null, null, null);
 
         assertThatThrownBy(() -> weighingService.recordWeight(otherWorker)).hasMessage(WeightMessages.WE_02_NO_ATTENDANCE);
         assertThatThrownBy(() -> weighingService.recordWeight(unknownAttendance)).hasMessage(WeightMessages.WE_02_NO_ATTENDANCE);
@@ -217,7 +220,7 @@ class WeighingServiceTest {
     @Test
     void D10_weighingTimedOnAnotherDay_isRejected() {
         RecordWeightRequest yesterday = new RecordWeightRequest(UUID.randomUUID(), attendance.getAttendanceId(),
-                "E001", NOW.minusSeconds(86_400), new BigDecimal("12.00"), EntryType.AUTOMATIC, null, null);
+                "E001", NOW.minusSeconds(86_400), new BigDecimal("12.00"), EntryType.AUTOMATIC, null, null, null, null, null);
 
         assertThatThrownBy(() -> weighingService.recordWeight(yesterday)).hasMessage(WeightMessages.TODAY_ONLY);
     }
@@ -231,6 +234,47 @@ class WeighingServiceTest {
         assertThat(saved.weightAfterVariance()).isEqualTo("25.50");
     }
 
+    private static final byte[] JPEG = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x00};
+
+    @Test
+    void pickedByFace_keepsTheScoreAndThePhoto() {
+        weighingService.recordWeight(picked(IdentifiedBy.FACE, new BigDecimal("0.8123"), JPEG));
+
+        ArgumentCaptor<WeightRecord> record = ArgumentCaptor.forClass(WeightRecord.class);
+        verify(weightRecordRepository).saveAndFlush(record.capture());
+        assertThat(record.getValue().getIdentifiedBy()).isEqualTo(IdentifiedBy.FACE);
+        assertThat(record.getValue().getFaceSimilarity()).isEqualTo("0.812");
+        ArgumentCaptor<WeightPhoto> photo = ArgumentCaptor.forClass(WeightPhoto.class);
+        verify(weightPhotoRepository).save(photo.capture());
+        assertThat(photo.getValue().getWeightId()).isEqualTo(record.getValue().getWeightId());
+        assertThat(photo.getValue().getPhoto()).isEqualTo(JPEG);
+    }
+
+    @Test
+    void pickedBySearch_hasNoScoreOrPhoto() {
+        weighingService.recordWeight(picked(IdentifiedBy.SEARCH, new BigDecimal("0.9"), JPEG));
+
+        ArgumentCaptor<WeightRecord> record = ArgumentCaptor.forClass(WeightRecord.class);
+        verify(weightRecordRepository).saveAndFlush(record.capture());
+        assertThat(record.getValue().getIdentifiedBy()).isEqualTo(IdentifiedBy.SEARCH);
+        assertThat(record.getValue().getFaceSimilarity()).isNull();
+        verify(weightPhotoRepository, never()).save(any());
+    }
+
+    @Test
+    void aPhotoThatIsNotAJpeg_isLeftOutButTheWeighingIsSaved() {
+        WeightRecordDto saved = weighingService.recordWeight(
+                picked(IdentifiedBy.FACE, new BigDecimal("0.8"), new byte[]{1, 2, 3}));
+
+        assertThat(saved.entrySequence()).isEqualTo(1);
+        verify(weightPhotoRepository, never()).save(any());
+    }
+
+    private RecordWeightRequest picked(IdentifiedBy identifiedBy, BigDecimal similarity, byte[] photo) {
+        return new RecordWeightRequest(UUID.randomUUID(), attendance.getAttendanceId(), "E001", NOW,
+                new BigDecimal("12.00"), EntryType.AUTOMATIC, null, null, identifiedBy, similarity, photo);
+    }
+
     private void weighings(long active, int maxSequence) {
         when(weightRecordRepository.countActive("E001", TODAY)).thenReturn(active);
         when(weightRecordRepository.maxSequence("E001", TODAY)).thenReturn(maxSequence);
@@ -238,6 +282,6 @@ class WeighingServiceTest {
 
     private RecordWeightRequest request(String weightKg, EntryType entryType) {
         return new RecordWeightRequest(UUID.randomUUID(), attendance.getAttendanceId(), "E001", NOW,
-                new BigDecimal(weightKg), entryType, null, null);
+                new BigDecimal(weightKg), entryType, null, null, null, null, null);
     }
 }
