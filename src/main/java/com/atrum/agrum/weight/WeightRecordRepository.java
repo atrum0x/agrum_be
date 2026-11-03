@@ -1,6 +1,8 @@
 package com.atrum.agrum.weight;
 
 import com.atrum.agrum.attendance.AttendanceCategory;
+import com.atrum.agrum.employee.Employee;
+import com.atrum.agrum.user.AppUser;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -158,4 +160,20 @@ public interface WeightRecordRepository extends JpaRepository<WeightRecord, UUID
               AND (:employeeCode = '' OR w.employee.employeeCode = :employeeCode)
             """)
     DayTotals totalsOn(@Param("date") LocalDate date, @Param("employeeCode") String employeeCode);
+
+    /** Filter suggestions: workers who appear in rows the user can see (JPQL, so the estate filter applies). */
+    @Query("""
+            SELECT DISTINCT e FROM WeightRecord w JOIN w.employee e
+            WHERE :search = ''
+               OR LOWER(e.employeeCode) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(e.firstName) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(e.lastName) LIKE LOWER(CONCAT('%', :search, '%'))
+            ORDER BY e.employeeCode
+            """)
+    List<Employee> findWorkerOptions(@Param("search") String search,
+                                     Pageable pageable);
+
+    /** Filter suggestions: users who appear in rows the user can see (JPQL, so the estate filter applies). */
+    @Query("SELECT DISTINCT u FROM WeightRecord w JOIN w.supervisor u ORDER BY u.username")
+    List<AppUser> findSupervisorOptions();
 }

@@ -1,5 +1,7 @@
 package com.atrum.agrum.attendance;
 
+import com.atrum.agrum.common.dto.FilterOptionDto;
+
 import com.atrum.agrum.security.ProjectionGroup;
 import io.swagger.v3.oas.annotations.Operation;
 import com.atrum.agrum.attendance.dto.AttendanceDefaultsDto;
@@ -61,6 +63,18 @@ public class AttendanceController {
     }
 
     /** Web: one batch, saved all-or-nothing. */
+    @Operation(summary = "Worker suggestions for the Attendance search filter (code and name only). Give with the attendance search")
+    @GetMapping("/filter-options/workers")
+    public ResponseEntity<List<FilterOptionDto>> getAttendanceWorkerOptions(@RequestParam(required = false) String search) {
+        return ResponseEntity.ok(attendanceService.getWorkerOptions(search));
+    }
+
+    @Operation(summary = "Recorded By suggestions for the Attendance search filter. Give with the attendance search")
+    @GetMapping("/filter-options/recorders")
+    public ResponseEntity<List<FilterOptionDto>> getAttendanceRecorderOptions() {
+        return ResponseEntity.ok(attendanceService.getRecorderOptions());
+    }
+
     @Operation(summary = "Record attendance on the web for workers at their default site")
     @PostMapping
     public ResponseEntity<List<AttendanceDto>> recordAttendance(@RequestBody RecordAttendanceRequest request) {
