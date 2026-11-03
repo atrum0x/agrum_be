@@ -1,5 +1,8 @@
 package com.atrum.agrum.weight;
 
+import com.atrum.agrum.common.dto.FilterOptionDto;
+import java.util.List;
+
 import com.atrum.agrum.security.ProjectionGroup;
 import io.swagger.v3.oas.annotations.Operation;
 import com.atrum.agrum.attendance.AttendanceCategory;
@@ -69,6 +72,18 @@ public class WeightHistoryController {
         return ResponseEntity.ok(weightHistoryService.searchMine(new WeightHistorySearchRequest(
                 dateFrom, dateTo, null, supervisor, estateId, cpCode, workType,
                 attendanceCategory, entryType, lineState, approvalStatus), pageable));
+    }
+
+    @Operation(summary = "Worker suggestions for the Weight History filter (code and name only). Give with the Weight History search")
+    @GetMapping("/filter-options/workers")
+    public ResponseEntity<List<FilterOptionDto>> getWeightWorkerOptions(@RequestParam(required = false) String search) {
+        return ResponseEntity.ok(weightHistoryService.getWorkerOptions(search));
+    }
+
+    @Operation(summary = "Supervisor suggestions for the Weight History filter. Give with the Weight History search")
+    @GetMapping("/filter-options/supervisors")
+    public ResponseEntity<List<FilterOptionDto>> getWeightSupervisorOptions() {
+        return ResponseEntity.ok(weightHistoryService.getSupervisorOptions());
     }
 
     /** 9.1: every row matching the search (DS-04 when none). */

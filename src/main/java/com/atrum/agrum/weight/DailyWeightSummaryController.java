@@ -1,5 +1,7 @@
 package com.atrum.agrum.weight;
 
+import com.atrum.agrum.common.dto.FilterOptionDto;
+
 import com.atrum.agrum.security.ProjectionGroup;
 import io.swagger.v3.oas.annotations.Operation;
 import com.atrum.agrum.weight.dto.DailyWeightSummaryResultDto;
@@ -52,6 +54,12 @@ public class DailyWeightSummaryController {
     }
 
     /** 9.2: every row matching the search (DS-04 when none). */
+    @Operation(summary = "Worker suggestions for the Daily Weight Summary filter (code and name only). Give with the summary search")
+    @GetMapping("/filter-options/workers")
+    public ResponseEntity<List<FilterOptionDto>> getSummaryWorkerOptions(@RequestParam(required = false) String search) {
+        return ResponseEntity.ok(dailyWeightSummaryService.getWorkerOptions(search));
+    }
+
     @Operation(summary = "Export the daily weight summary to Excel")
     @GetMapping("/export")
     public ResponseEntity<byte[]> exportDailyWeightSummary(

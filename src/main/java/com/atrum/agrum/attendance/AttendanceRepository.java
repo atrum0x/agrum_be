@@ -1,6 +1,9 @@
 package com.atrum.agrum.attendance;
 
+import com.atrum.agrum.employee.Employee;
+import com.atrum.agrum.user.AppUser;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
@@ -86,4 +89,20 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
 
     // JPQL, so the estate filter limits it to the user's sites (Dashboard, FSD 2.2)
     long countByAttendanceDate(LocalDate attendanceDate);
+
+    /** Filter suggestions: workers who appear in rows the user can see (JPQL, so the estate filter applies). */
+    @Query("""
+            SELECT DISTINCT e FROM Attendance a JOIN a.employee e
+            WHERE :search = ''
+               OR LOWER(e.employeeCode) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(e.firstName) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(e.lastName) LIKE LOWER(CONCAT('%', :search, '%'))
+            ORDER BY e.employeeCode
+            """)
+    List<Employee> findWorkerOptions(@Param("search") String search,
+                                     Pageable pageable);
+
+    /** Filter suggestions: users who appear in rows the user can see (JPQL, so the estate filter applies). */
+    @Query("SELECT DISTINCT u FROM Attendance a JOIN a.recordedBy u ORDER BY u.username")
+    List<AppUser> findRecorderOptions();
 }

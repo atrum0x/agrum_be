@@ -1,5 +1,8 @@
 package com.atrum.agrum.attendance;
 
+import com.atrum.agrum.common.dto.FilterOptionDto;
+import org.springframework.data.domain.PageRequest;
+
 import com.atrum.agrum.attendance.AttendanceSiteValidator.AttendanceSite;
 import com.atrum.agrum.attendance.dto.AttendanceDefaultsDto;
 import com.atrum.agrum.attendance.dto.AttendanceDto;
@@ -271,5 +274,19 @@ public class AttendanceService {
 
     private static String term(String value) {
         return StringUtils.hasText(value) ? value.trim() : "";
+    }
+
+    /** Worker filter suggestions: workers with attendance at the user's sites. */
+    @Transactional(readOnly = true)
+    public List<FilterOptionDto> getWorkerOptions(String search) {
+        return attendanceRepository.findWorkerOptions(FilterOptionDto.searchTerm(search),
+                        PageRequest.of(0, FilterOptionDto.WORKER_LIMIT))
+                .stream().map(FilterOptionDto::of).toList();
+    }
+
+    /** Recorder filter suggestions: users who recorded attendance at the user's sites. */
+    @Transactional(readOnly = true)
+    public List<FilterOptionDto> getRecorderOptions() {
+        return attendanceRepository.findRecorderOptions().stream().map(FilterOptionDto::of).toList();
     }
 }

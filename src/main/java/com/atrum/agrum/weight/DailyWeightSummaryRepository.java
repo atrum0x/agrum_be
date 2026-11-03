@@ -1,5 +1,7 @@
 package com.atrum.agrum.weight;
 
+import com.atrum.agrum.employee.Employee;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -94,4 +96,16 @@ public interface DailyWeightSummaryRepository extends JpaRepository<DailyWeightS
                                     @Param("estateId") String estateId,
                                     @Param("cpCode") String cpCode,
                                     @Param("workType") String workType);
+
+    /** Filter suggestions: workers who appear in rows the user can see (JPQL, so the estate filter applies). */
+    @Query("""
+            SELECT DISTINCT e FROM DailyWeightSummary s JOIN s.employee e
+            WHERE :search = ''
+               OR LOWER(e.employeeCode) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(e.firstName) LIKE LOWER(CONCAT('%', :search, '%'))
+               OR LOWER(e.lastName) LIKE LOWER(CONCAT('%', :search, '%'))
+            ORDER BY e.employeeCode
+            """)
+    List<Employee> findWorkerOptions(@Param("search") String search,
+                                     Pageable pageable);
 }

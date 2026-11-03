@@ -1,5 +1,7 @@
 package com.atrum.agrum.weight;
 
+import com.atrum.agrum.common.dto.FilterOptionDto;
+
 import com.atrum.agrum.attendance.AttendanceCategory;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.UserService;
@@ -146,5 +148,19 @@ public class WeightHistoryService {
 
     private static String term(String value) {
         return StringUtils.hasText(value) ? value.trim() : "";
+    }
+
+    /** Worker filter suggestions: workers with weighings at the user's sites. */
+    @Transactional(readOnly = true)
+    public List<FilterOptionDto> getWorkerOptions(String search) {
+        return weightRecordRepository.findWorkerOptions(FilterOptionDto.searchTerm(search),
+                        PageRequest.of(0, FilterOptionDto.WORKER_LIMIT))
+                .stream().map(FilterOptionDto::of).toList();
+    }
+
+    /** Supervisor filter suggestions: users who recorded weighings at the user's sites. */
+    @Transactional(readOnly = true)
+    public List<FilterOptionDto> getSupervisorOptions() {
+        return weightRecordRepository.findSupervisorOptions().stream().map(FilterOptionDto::of).toList();
     }
 }
