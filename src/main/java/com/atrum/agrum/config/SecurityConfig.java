@@ -19,8 +19,10 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
+import java.util.Map;
 
 @Configuration
 @EnableWebSecurity
@@ -29,16 +31,19 @@ public class SecurityConfig {
     private final DynamicPermissionSetManager dynamicPermissionSetManager;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final RateLimitingFilter rateLimitingFilter;
+    private final ObjectMapper objectMapper;
 
     @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
 
     public SecurityConfig(DynamicPermissionSetManager dynamicPermissionSetManager,
                           JwtAuthenticationFilter jwtAuthenticationFilter,
-                          RateLimitingFilter rateLimitingFilter) {
+                          RateLimitingFilter rateLimitingFilter,
+                          ObjectMapper objectMapper) {
         this.dynamicPermissionSetManager = dynamicPermissionSetManager;
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.rateLimitingFilter = rateLimitingFilter;
+        this.objectMapper = objectMapper;
     }
 
     @Bean
@@ -64,6 +69,18 @@ public class SecurityConfig {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.setContentType("application/json");
                             response.getWriter().write("{\"status\": 401, \"message\": \"Authentication required. Please sign in.\"}");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            // Name the missing grant so the admin knows which projection to add
+                            String projection = request.getMethod() + ":" + request.getRequestURI();
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json");
+                            response.getWriter().write(objectMapper.writeValueAsString(Map.of(
+                                    "status", 403,
+                                    "error", "Forbidden",
+                                    "path", request.getRequestURI(),
+                                    "message", "You do not have permission to call " + projection
+                                            + ". Ask an administrator to add this endpoint to one of your permission sets.")));
                         })
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
