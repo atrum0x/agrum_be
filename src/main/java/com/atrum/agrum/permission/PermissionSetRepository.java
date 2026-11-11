@@ -83,11 +83,13 @@ public interface PermissionSetRepository extends JpaRepository<PermissionSet, St
             Pageable pageable
     );
 
-    @Query("SELECT DISTINCT u FROM AppUser u JOIN u.permissionSets ps WHERE ps.id = :permissionSetId " +
-            "AND (:search = '' OR LOWER(u.username) LIKE LOWER(CONCAT('%', :search, '%')))")
+    @Query("SELECT DISTINCT u FROM AppUser u JOIN u.permissionSets ps LEFT JOIN FETCH u.employee e WHERE ps.id = :permissionSetId " +
+            "AND (:search = '' OR LOWER(u.username) LIKE LOWER(CONCAT('%', :search, '%')) " +
+            "OR LOWER(CONCAT(COALESCE(e.firstName, ''), ' ', COALESCE(e.lastName, ''))) LIKE LOWER(CONCAT('%', :search, '%')))")
     List<AppUser> findGrantedUsers(@Param("permissionSetId") String permissionSetId, @Param("search") String search);
 
-    @Query("SELECT DISTINCT u FROM AppUser u WHERE NOT EXISTS (SELECT 1 FROM u.permissionSets ps WHERE ps.id = :permissionSetId) " +
-            "AND (:search = '' OR LOWER(u.username) LIKE LOWER(CONCAT('%', :search, '%')))")
+    @Query("SELECT DISTINCT u FROM AppUser u LEFT JOIN FETCH u.employee e WHERE NOT EXISTS (SELECT 1 FROM u.permissionSets ps WHERE ps.id = :permissionSetId) " +
+            "AND (:search = '' OR LOWER(u.username) LIKE LOWER(CONCAT('%', :search, '%')) " +
+            "OR LOWER(CONCAT(COALESCE(e.firstName, ''), ' ', COALESCE(e.lastName, ''))) LIKE LOWER(CONCAT('%', :search, '%')))")
     List<AppUser> findUnassignedUsers(@Param("permissionSetId") String permissionSetId, @Param("search") String search);
 }
