@@ -24,7 +24,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
         String path = request.getRequestURI();
-        return path.startsWith("/v3/api-docs") ||
+        // The health check is polled every few seconds by Coolify (and by uptime monitors), which
+        // would empty the 10-per-minute anonymous bucket and mark the app unhealthy
+        return path.equals("/api/public/health") ||
+                path.startsWith("/v3/api-docs") ||
                 path.startsWith("/swagger-ui") ||
                 path.startsWith("/swagger-resources");
     }

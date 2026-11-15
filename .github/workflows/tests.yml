@@ -1,0 +1,42 @@
+# Runs the unit tests on every pull request and on pushes to main / uat.
+# Deploys are done by the hosting platform (Coolify) building the Dockerfile, which uses
+# -DskipTests. This workflow is what actually runs the tests before code reaches a server.
+# AgrumApplicationTests is skipped: it needs a live Postgres and Redis.
+name: Unit tests
+
+on:
+  pull_request:
+  push:
+    branches: [main, uat]
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      # mvnw is committed without the executable bit (it was added from Windows)
+      - name: Run unit tests
+        run: |
+          chmod +x mvnw
+          ./mvnw -B clean test -Dtest='!AgrumApplicationTests' -Dsurefire.failIfNoSpecifiedTests=false
+
+      - name: Upload test reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          retention-days: 7
