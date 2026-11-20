@@ -97,7 +97,7 @@ Restore a key on a new PC: create `C:\Users\<you>\.ssh\id_ed25519` (no `.txt`!),
 3. **Run `sudo sshd -t` before `sudo systemctl restart ssh`.** No output means the config is valid.
 4. **`PermitRootLogin prohibit-password`, never `no`.** Coolify manages the server by SSHing in as root with its own key. `no` breaks Coolify.
 5. **The KVM console password must work.** Test it after any password change (OVH panel → VPS → KVM).
-6. **Close port 8000 only after** `https://coolify.yourdomain` loads.
+6. **Close port 8000 only after** `https://coolify.yourdomain` loads, and close it in Docker's `DOCKER-USER` chain (5.6 step 4): ufw alone doesn't block it.
 7. **Leave the OVH Network Firewall (in the control panel) off.** ufw is enough. Two firewalls double the chances of locking yourself out.
 8. **Before risky changes:** press "Backup now" on the prod Postgres in Coolify (and take a snapshot if that add-on is bought).
 
@@ -273,7 +273,7 @@ sudo ufw default allow outgoing
 sudo ufw allow 22/tcp              # SSH. MUST come before "ufw enable"
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
-sudo ufw allow 8000/tcp            # temporary, for the first Coolify login
+sudo ufw allow 8000/tcp            # temporary, for the first Coolify login (Docker opens it anyway; see 5.6 step 4)
 sudo ufw enable                    # answer y
 sudo ufw status                    # should list 22, 80, 443 and 8000 as ALLOW
 ```
@@ -427,12 +427,51 @@ Type it exactly: `https://` at the start, no trailing `/`. Coolify asks Let's En
 > [!TIP]
 > **A "503 Service Unavailable … The domain is not configured on a resource in Coolify" page** on `https://coolify.yourdomain` is good news: the DNS works and the proxy answers. Coolify just doesn't know the domain is its own yet. Fix: open `http://<VPS-IP>:8000`, set the Instance's Domain as above, wait 1–2 minutes. Still 503? Servers → localhost → Proxy → **Restart Proxy**.
 
-**Step 4. Close port 8000.** Only after `https://coolify.yourdomain` works:
+**Step 4. Close port 8000 (and 6001/6002).** Only after `https://coolify.yourdomain` works.
+
+> [!WARNING]
+> **`ufw delete allow 8000/tcp` alone does NOT close it.** The Coolify dashboard runs in Docker, which publishes `0.0.0.0:8000` (plus `6001`/`6002` for its realtime websocket) and writes its own iptables rules **in front of** ufw. `ufw status` then looks closed while `http://<VPS-IP>:8000` still loads. Found on both OVH boxes (2026-11-21). The block has to go into Docker's own `DOCKER-USER` chain.
+
+First remove the ufw rule (it's only misleading now) and find the public network interface:
 ```bash
 🖥️ SERVER
 sudo ufw delete allow 8000/tcp
-sudo ufw status            # 8000 must be gone; 22, 80, 443 stay
+ip -br a                   # the interface holding <VPS-IP>, on OVH usually ens3
 ```
+
+**Try the block live** (not saved yet; a reboot undoes it). Replace `ens3` if yours differs:
+```bash
+🖥️ SERVER
+for p in 8000 6001 6002; do
+  sudo iptables -I DOCKER-USER -i ens3 -p tcp -m conntrack --ctorigdstport $p --ctdir ORIGINAL -j DROP
+done
+```
+Check from the PC: `http://<VPS-IP>:8000` must **time out**, and `https://coolify.yourdomain` must still work, live updates included. Traefik reaches Coolify over Docker's internal network, not these ports.
+
+**Make it permanent** through ufw, so it survives reboots:
+```bash
+🖥️ SERVER
+sudo nano /etc/ufw/after.rules
+```
+Paste at the **very end** of the file (again with your interface name), save, exit:
+```
+*filter
+:DOCKER-USER - [0:0]
+-A DOCKER-USER -i ens3 -p tcp -m conntrack --ctorigdstport 8000 --ctdir ORIGINAL -j DROP
+-A DOCKER-USER -i ens3 -p tcp -m conntrack --ctorigdstport 6001 --ctdir ORIGINAL -j DROP
+-A DOCKER-USER -i ens3 -p tcp -m conntrack --ctorigdstport 6002 --ctdir ORIGINAL -j DROP
+COMMIT
+```
+```bash
+🖥️ SERVER
+sudo ufw reload
+```
+Test from the PC again (a `sudo reboot` and a second test proves it sticks). Port 22 is not touched, so this can't lock you out of SSH.
+
+- **Why `--ctorigdstport` and not `--dport 8000`:** by the time a packet reaches `DOCKER-USER`, Docker has already rewritten it to the container's port (8080). `--ctorigdstport` matches the port the visitor actually used.
+- **How bad is it if you skip this?** Not very: the same dashboard is public on `https://coolify.yourdomain` anyway, so 2FA and keeping Coolify updated are what really protect it. But `:8000` is **plain HTTP**: never log in through it. Do this step at the latest when prod moves onto the box.
+- **Locked out of the dashboard after this?** Log in over SSH and run `sudo iptables -D DOCKER-USER -i ens3 -p tcp -m conntrack --ctorigdstport 8000 --ctdir ORIGINAL -j DROP` to open 8000 again (and remove the line from `after.rules` if it should stay open).
+
 From now on, use only `https://coolify.yourdomain`.
 
 > [!WARNING]
@@ -690,6 +729,8 @@ git push to uat ──► GitHub webhook ──► Coolify
 | Surprise | Why | What to do |
 |---|---|---|
 | A port is open even though `ufw` blocks it | **Docker writes its own iptables rules and bypasses ufw** | Never publish ports (`ports: 8080:8080`, 5432, 6379). Let Coolify's proxy route by domain. Never tick "Make it publicly available" on a database. |
+| `http://<VPS-IP>:8000` still loads after `ufw delete allow 8000/tcp` | Same thing: Coolify's own container publishes 8000, 6001 and 6002 past ufw | Block them in the `DOCKER-USER` chain (5.6 step 4). Check from outside: the port must time out. |
+| `https://coolify.<name>` shows "not secure" with certificate `TRAEFIK DEFAULT CERT` | The DNS record points at a server whose Coolify doesn't know that name (e.g. a record renamed, or still pointing at the old box) | `nslookup` the name: right IP? Then set it as that server's Instance's Domain (5.6 step 3) and Restart Proxy. |
 | Coolify can't reach "localhost" server | `PermitRootLogin no`, root's `authorized_keys` was edited, or the server's "IP address or domain" field was changed | Use `prohibit-password`. Don't remove Coolify's key from `/root/.ssh/authorized_keys`. Servers → localhost → IP address = `host.docker.internal`, then Revalidate connection. |
 | `https://coolify.yourdomain` shows Coolify's own "503 … domain is not configured" page | DNS and proxy work, but the Instance's Domain isn't set | Global **Settings** → Instance's Domain (5.6 step 3). |
 | App can't log in to Postgres after you changed the DB password in Coolify | Postgres keeps the password it was created with | `ALTER USER` in the database terminal (5.7 step 3). |
