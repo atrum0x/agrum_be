@@ -81,16 +81,16 @@ class DailyWeightSummaryServiceTest {
 
     @Test
     void search_defaultsToYesterday() {
-        service.search(new DailyWeightSummarySearchRequest(null, null, null, null, null, null));
+        service.search(new DailyWeightSummarySearchRequest(null, null, null, null, null, null, null));
 
         verify(dailyWeightSummaryRepository).search(eq(TODAY.minusDays(1)), eq(TODAY.minusDays(1)),
-                anyString(), anyString(), anyString(), anyString());
+                anyString(), anyString(), anyString(), anyString(), anyString());
     }
 
     @Test
     void DS01_dateFromAfterDateTo_isRejected() {
         assertThatThrownBy(() -> service.search(
-                new DailyWeightSummarySearchRequest(TODAY, TODAY.minusDays(1), null, null, null, null)))
+                new DailyWeightSummarySearchRequest(TODAY, TODAY.minusDays(1), null, null, null, null, null)))
                 .hasMessage(WeightMessages.DS_01_DATES);
     }
 
@@ -98,8 +98,9 @@ class DailyWeightSummaryServiceTest {
         return new DailyWeightSummaryRepository.DailyTotal() {
             public String getEmployeeCode() { return employeeCode; }
             public String getEstateId() { return "S01"; }
-            public String getCollectionPointCode() { return "CP1"; }
-            public String getWorkType() { return "PLUCKING"; }
+            public String getDivisionCode() { return "D1"; }
+            public String getFieldCode() { return "CP1"; }
+            public String getWorkTypeCode() { return "PLUCKING"; }
             public String getAttendanceCategory() { return "REGULAR"; }
             public Long getTransactionCount() { return count; }
             public BigDecimal getDailyTotalKg() { return new BigDecimal(kg); }

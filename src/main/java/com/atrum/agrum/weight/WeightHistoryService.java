@@ -79,7 +79,7 @@ public class WeightHistoryService {
         }
         return new WeightHistorySearchRequest(request.dateFrom(), request.dateTo(),
                 user.getEmployee().getEmployeeCode(), request.supervisor(), request.estateId(),
-                request.cpCode(), request.workType(), request.attendanceCategory(),
+                request.divisionCode(), request.fieldCode(), request.workType(), request.attendanceCategory(),
                 request.entryType(), request.lineState(), request.approvalStatus());
     }
 
@@ -122,7 +122,7 @@ public class WeightHistoryService {
         }
         return weightRecordRepository.search(dateFrom, dateTo,
                 term(request.employeeCode()), term(request.supervisor()), term(request.estateId()),
-                term(request.cpCode()), term(request.workType()),
+                term(request.divisionCode()), term(request.fieldCode()), term(request.workType()),
                 oneOrAll(request.attendanceCategory(), AttendanceCategory.class),
                 oneOrAll(request.entryType(), EntryType.class),
                 oneOrAll(request.lineState(), LineState.class),

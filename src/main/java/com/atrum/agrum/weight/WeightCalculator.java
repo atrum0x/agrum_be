@@ -36,7 +36,7 @@ public final class WeightCalculator {
     }
 
     /**
-     * Half / Full Day and overweight (3.3) from the estate standards at run time (D-05).
+     * Half / Full Day and overweight (3.3) from the site qty norms at run time (D-05).
      * total >= full: Full Day, overweight = total - full; otherwise Half Day, overweight = max(0, total - half).
      */
     public static DayResult classify(BigDecimal dailyTotalKg, BigDecimal fullDayQtyKg, BigDecimal halfDayQtyKg) {

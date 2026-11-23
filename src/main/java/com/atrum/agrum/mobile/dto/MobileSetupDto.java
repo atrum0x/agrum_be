@@ -20,7 +20,9 @@ public record MobileSetupDto(
         // Active sites the user can see
         List<MobileEstateDto> estates,
         List<MobileWorkTypeDto> workTypes,
-        List<MobileCollectionPointDto> collectionPoints,
+        List<MobileDivisionDto> divisions,
+        // Each field names its division
+        List<MobileFieldDto> fields,
         // Active workers employed today, from all sites (attendance can be for other-site workers)
         List<AttendanceWorkerDto> workers,
         // Workers with attendance today on any site, so the phone can hide them (AT-02)

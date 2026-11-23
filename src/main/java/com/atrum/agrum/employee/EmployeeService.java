@@ -2,9 +2,9 @@ package com.atrum.agrum.employee;
 
 import com.atrum.agrum.attendance.AttendanceCategory;
 import com.atrum.agrum.auth.AuthService;
-import com.atrum.agrum.collectionPoint.CollectionPoint;
-import com.atrum.agrum.collectionPoint.CollectionPointId;
-import com.atrum.agrum.collectionPoint.CollectionPointRepository;
+import com.atrum.agrum.division.Division;
+import com.atrum.agrum.division.DivisionId;
+import com.atrum.agrum.division.DivisionRepository;
 import com.atrum.agrum.employee.dto.CreateEmployeeRequest;
 import com.atrum.agrum.employee.dto.EmployeeDto;
 import com.atrum.agrum.employee.dto.UpdateEmployeeRequest;
@@ -14,6 +14,9 @@ import com.atrum.agrum.estate.EstateRepository;
 import com.atrum.agrum.estate.dto.EstateDto;
 import com.atrum.agrum.estate.mapper.EstateMapper;
 import com.atrum.agrum.exception.ResourceNotFoundException;
+import com.atrum.agrum.field.Field;
+import com.atrum.agrum.field.FieldId;
+import com.atrum.agrum.field.FieldRepository;
 import com.atrum.agrum.permission.PermissionSet;
 import com.atrum.agrum.permission.PermissionSetRepository;
 import com.atrum.agrum.permission.dto.PermissionSetDto;
@@ -38,7 +41,8 @@ public class EmployeeService {
 
     private final EmployeeRepository employeeRepository;
     private final EstateRepository estateRepository;
-    private final CollectionPointRepository collectionPointRepository;
+    private final DivisionRepository divisionRepository;
+    private final FieldRepository fieldRepository;
     private final PermissionSetRepository permissionSetRepository;
     private final EstateMapper estateMapper;
     private final EmployeeMapper employeeMapper;
@@ -67,7 +71,8 @@ public class EmployeeService {
         Employee employee = employeeMapper.fromCreateRequest(request);
         employee.setEmployeeCode(employeeCode);
         employee.setNic(nic);
-        applyEstates(employee, request.defaultEstateId(), request.defaultCollectionPointCode(), request.homeEstateId());
+        applyEstates(employee, request.defaultEstateId(), request.defaultDivisionCode(), request.defaultFieldCode(),
+                request.homeEstateId());
         Employee savedEmployee = employeeRepository.save(employee);
 
         if (request.isUserAccount()) {
@@ -115,7 +120,8 @@ public class EmployeeService {
         boolean wasActive = employee.getEmploymentStatus() == EmploymentStatus.ACTIVE;
         employeeMapper.updateEmployee(request, employee);
         employee.setNic(nic);
-        applyEstates(employee, request.defaultEstateId(), request.defaultCollectionPointCode(), request.homeEstateId());
+        applyEstates(employee, request.defaultEstateId(), request.defaultDivisionCode(), request.defaultFieldCode(),
+                request.homeEstateId());
         Employee saved = employeeRepository.save(employee);
         // LG-04: an inactive employee cannot log in, so end their current sessions too
         if (wasActive && saved.getEmploymentStatus() != EmploymentStatus.ACTIVE && saved.getUserAccount() != null) {
@@ -198,25 +204,44 @@ public class EmployeeService {
                         "Employee not found: " + employeeCode));
     }
 
-    private void applyEstates(Employee employee, String defaultEstateId, String defaultCollectionPointCode,
-                              String homeEstateId) {
+    private void applyEstates(Employee employee, String defaultEstateId, String defaultDivisionCode,
+                              String defaultFieldCode, String homeEstateId) {
         Estate defaultEstate = findEstate(defaultEstateId);
         employee.setDefaultEstate(defaultEstate);
-        employee.setDefaultCollectionPoint(findDefaultCollectionPoint(defaultEstate, defaultCollectionPointCode));
+        Field defaultField = findDefaultField(defaultEstate, defaultFieldCode);
+        // A Default Field without a Default Division takes the field's division
+        Division defaultDivision = StringUtils.hasText(defaultDivisionCode)
+                ? findDefaultDivision(defaultEstate, defaultDivisionCode)
+                : defaultField == null ? null : defaultField.getDivision();
+        // PB-11
+        if (defaultField != null && !defaultField.getDivisionCode().equals(defaultDivision.getDivisionCode())) {
+            throw new IllegalArgumentException(PersonMessages.PB_11_DEFAULT_FIELD);
+        }
+        employee.setDefaultDivision(defaultDivision);
+        employee.setDefaultField(defaultField);
         employee.setHomeEstate(findEstate(homeEstateId));
     }
 
     // findById is not estate-filtered, so an existing value still saves for users without that site
-    private CollectionPoint findDefaultCollectionPoint(Estate defaultEstate, String cpCode) {
-        if (!StringUtils.hasText(cpCode)) {
+    private Division findDefaultDivision(Estate defaultEstate, String divisionCode) {
+        if (defaultEstate == null) {
+            throw new IllegalArgumentException("Select a default site before choosing a default division");
+        }
+        // PB-16
+        return divisionRepository.findById(new DivisionId(defaultEstate.getId(), divisionCode.trim()))
+                .orElseThrow(() -> new IllegalArgumentException(PersonMessages.PB_16_DEFAULT_DIVISION));
+    }
+
+    private Field findDefaultField(Estate defaultEstate, String fieldCode) {
+        if (!StringUtils.hasText(fieldCode)) {
             return null;
         }
         if (defaultEstate == null) {
-            throw new IllegalArgumentException("Select a default site before choosing a default collection point");
+            throw new IllegalArgumentException("Select a default site before choosing a default field");
         }
-        // PB-11
-        return collectionPointRepository.findById(new CollectionPointId(defaultEstate.getId(), cpCode.trim()))
-                .orElseThrow(() -> new IllegalArgumentException(PersonMessages.PB_11_DEFAULT_COLLECTION_POINT));
+        // PB-11: a field of another site can't be in the Default Division either
+        return fieldRepository.findById(new FieldId(defaultEstate.getId(), fieldCode.trim()))
+                .orElseThrow(() -> new IllegalArgumentException(PersonMessages.PB_11_DEFAULT_FIELD));
     }
 
     private Estate findEstate(String estateId) {

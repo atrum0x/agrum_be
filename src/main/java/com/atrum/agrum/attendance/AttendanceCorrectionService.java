@@ -44,7 +44,8 @@ public class AttendanceCorrectionService {
         Attendance attendance = findVisible(attendanceId);
         String reason = requireReason(request.reason());
         checkVersion(attendance, request.rowVersion());
-        AttendanceSite site = siteValidator.resolve(request.estateId(), request.workType(), request.cpCode());
+        AttendanceSite site = siteValidator.resolve(request.estateId(), request.workType(), request.divisionCode(),
+                request.fieldCode());
         // AT-08
         if (request.attendanceCategory() == null) {
             throw new IllegalArgumentException(AttendanceMessages.AT_08_CATEGORY);
@@ -60,7 +61,8 @@ public class AttendanceCorrectionService {
         // Read-only mapping; set so the returned DTO has the new estate without a reload
         attendance.setEstate(site.estate());
         attendance.setWorkType(site.workType());
-        attendance.setCollectionPoint(site.collectionPoint());
+        attendance.setDivision(site.division());
+        attendance.setField(site.field());
         attendance.setAttendanceCategory(request.attendanceCategory());
         AttendanceSnapshot newValues = AttendanceSnapshot.of(attendance);
         if (newValues.equals(oldValues)) {
@@ -68,10 +70,10 @@ public class AttendanceCorrectionService {
         }
 
         attendanceRepository.saveAndFlush(attendance);
-        // (Proposed) The weighings follow the corrected site, collection point and work type; weights
+        // (Proposed) The weighings follow the corrected site, division, field and work type; weights
         // and their saved variance are unchanged. The 10 pm summary finds the changed date via corrected_at.
         weightRecordRepository.copyFromAttendance(attendanceId, newValues.estateId(),
-                newValues.cpCode(), newValues.workType());
+                newValues.divisionCode(), newValues.fieldCode(), newValues.workType());
         AttendanceCorrection correction = saveCorrection(
                 attendanceId, CorrectionAction.CORRECT, oldValues, newValues, reason, user);
         return AttendanceDto.from(attendance, correction);

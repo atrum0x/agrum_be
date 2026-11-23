@@ -10,6 +10,7 @@ public record DailyWeightSummarySearchRequest(
         LocalDate dateTo,
         String employeeCode,
         String estateId,
-        String cpCode,
+        String divisionCode,
+        String fieldCode,
         String workType
 ) {}

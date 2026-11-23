@@ -17,7 +17,8 @@ public record WeightHistorySearchRequest(
         // Supervisor's username
         String supervisor,
         String estateId,
-        String cpCode,
+        String divisionCode,
+        String fieldCode,
         String workType,
         // "Employment Category": the attendance category of the day (D-18)
         AttendanceCategory attendanceCategory,

@@ -76,20 +76,22 @@ public interface WeightRecordRepository extends JpaRepository<WeightRecord, UUID
     long countByAttendance(@Param("attendanceId") UUID attendanceId);
 
     /**
-     * Attendance correction cascade: the weighings follow the corrected site, collection point
+     * Attendance correction cascade: the weighings follow the corrected site, division, field
      * and work type. Weights are unchanged. Bumps row_version so an open approval sees the change.
      * Doesn't clear the persistence context: the correction goes on using the loaded attendance.
      */
     @Modifying(flushAutomatically = true)
     @Query(value = """
             UPDATE weight_records
-            SET estate_id = :estateId, collection_point_code = :cpCode, work_type = :workType,
+            SET estate_id = :estateId, division_code = :divisionCode, field_code = :fieldCode,
+                work_type_code = :workType,
                 row_version = row_version + 1
             WHERE attendance_id = :attendanceId
             """, nativeQuery = true)
     int copyFromAttendance(@Param("attendanceId") UUID attendanceId,
                            @Param("estateId") String estateId,
-                           @Param("cpCode") String cpCode,
+                           @Param("divisionCode") String divisionCode,
+                           @Param("fieldCode") String fieldCode,
                            @Param("workType") String workType);
 
     /**
@@ -104,13 +106,15 @@ public interface WeightRecordRepository extends JpaRepository<WeightRecord, UUID
             JOIN FETCH w.supervisor s
             LEFT JOIN FETCH s.employee
             JOIN FETCH w.estate
-            JOIN FETCH w.collectionPoint
+            JOIN FETCH w.division
+            JOIN FETCH w.field
             JOIN FETCH w.workType
             WHERE w.weighDate BETWEEN :dateFrom AND :dateTo
               AND (:employeeCode = '' OR e.employeeCode = :employeeCode)
               AND (:supervisor = '' OR s.username = :supervisor)
               AND (:estateId = '' OR w.estateId = :estateId)
-              AND (:cpCode = '' OR w.cpCode = :cpCode)
+              AND (:divisionCode = '' OR w.divisionCode = :divisionCode)
+              AND (:fieldCode = '' OR w.fieldCode = :fieldCode)
               AND (:workType = '' OR w.workTypeCode = :workType)
               AND a.attendanceCategory IN :categories
               AND w.entryType IN :entryTypes
@@ -127,7 +131,8 @@ public interface WeightRecordRepository extends JpaRepository<WeightRecord, UUID
               AND (:employeeCode = '' OR e.employeeCode = :employeeCode)
               AND (:supervisor = '' OR s.username = :supervisor)
               AND (:estateId = '' OR w.estateId = :estateId)
-              AND (:cpCode = '' OR w.cpCode = :cpCode)
+              AND (:divisionCode = '' OR w.divisionCode = :divisionCode)
+              AND (:fieldCode = '' OR w.fieldCode = :fieldCode)
               AND (:workType = '' OR w.workTypeCode = :workType)
               AND a.attendanceCategory IN :categories
               AND w.entryType IN :entryTypes
@@ -139,7 +144,8 @@ public interface WeightRecordRepository extends JpaRepository<WeightRecord, UUID
                               @Param("employeeCode") String employeeCode,
                               @Param("supervisor") String supervisor,
                               @Param("estateId") String estateId,
-                              @Param("cpCode") String cpCode,
+                              @Param("divisionCode") String divisionCode,
+                              @Param("fieldCode") String fieldCode,
                               @Param("workType") String workType,
                               @Param("categories") Collection<AttendanceCategory> categories,
                               @Param("entryTypes") Collection<EntryType> entryTypes,

@@ -12,9 +12,12 @@ public record WeighableWorkerDto(
         UUID attendanceId,
         String estateId,
         String estateName,
-        String cpCode,
-        String cpName,
+        String divisionCode,
+        String divisionDescription,
+        String fieldCode,
+        String fieldDescription,
         String workType,
+        String workTypeName,
         // The site's current variance; the server applies its own value on save (CL-02)
         BigDecimal variancePercent,
         // "Entries Today": entriesToday of dailyLimit; Save is blocked at the limit (WE-04)

@@ -9,7 +9,7 @@ import java.util.UUID;
 
 /**
  * One weighing saved on a phone. Sent on its own when online, or in a sync batch.
- * Site, collection point and work type are not sent: they come from the attendance.
+ * Site, division, field and work type are not sent: they come from the attendance.
  */
 public record RecordWeightRequest(
         // Created on the phone; a resend with the same id is accepted as already received (WE-09)

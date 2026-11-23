@@ -35,10 +35,11 @@ public class DailyWeightSummaryController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String employeeCode,
             @RequestParam(required = false) String estateId,
-            @RequestParam(required = false) String cpCode,
+            @RequestParam(required = false) String divisionCode,
+            @RequestParam(required = false) String fieldCode,
             @RequestParam(required = false) String workType) {
         return ResponseEntity.ok(dailyWeightSummaryService.search(new DailyWeightSummarySearchRequest(
-                dateFrom, dateTo, employeeCode, estateId, cpCode, workType)));
+                dateFrom, dateTo, employeeCode, estateId, divisionCode, fieldCode, workType)));
     }
 
     @Operation(summary = "Daily weight summary for pickers: only their own rows")
@@ -47,10 +48,11 @@ public class DailyWeightSummaryController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String estateId,
-            @RequestParam(required = false) String cpCode,
+            @RequestParam(required = false) String divisionCode,
+            @RequestParam(required = false) String fieldCode,
             @RequestParam(required = false) String workType) {
         return ResponseEntity.ok(dailyWeightSummaryService.searchMine(new DailyWeightSummarySearchRequest(
-                dateFrom, dateTo, null, estateId, cpCode, workType)));
+                dateFrom, dateTo, null, estateId, divisionCode, fieldCode, workType)));
     }
 
     /** 9.2: every row matching the search (DS-04 when none). */
@@ -67,10 +69,11 @@ public class DailyWeightSummaryController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String employeeCode,
             @RequestParam(required = false) String estateId,
-            @RequestParam(required = false) String cpCode,
+            @RequestParam(required = false) String divisionCode,
+            @RequestParam(required = false) String fieldCode,
             @RequestParam(required = false) String workType) {
         return weightExportService.dailySummary(dailyWeightSummaryService.search(new DailyWeightSummarySearchRequest(
-                dateFrom, dateTo, employeeCode, estateId, cpCode, workType)).rows()).toResponse();
+                dateFrom, dateTo, employeeCode, estateId, divisionCode, fieldCode, workType)).rows()).toResponse();
     }
 
     /** Pickers: their own rows only (TC-85). */
@@ -80,10 +83,11 @@ public class DailyWeightSummaryController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateFrom,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String estateId,
-            @RequestParam(required = false) String cpCode,
+            @RequestParam(required = false) String divisionCode,
+            @RequestParam(required = false) String fieldCode,
             @RequestParam(required = false) String workType) {
         return weightExportService.dailySummary(dailyWeightSummaryService.searchMine(new DailyWeightSummarySearchRequest(
-                dateFrom, dateTo, null, estateId, cpCode, workType)).rows()).toResponse();
+                dateFrom, dateTo, null, estateId, divisionCode, fieldCode, workType)).rows()).toResponse();
     }
 
     /**

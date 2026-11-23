@@ -24,7 +24,7 @@ public class AttendanceCorrectionController {
 
     private final AttendanceCorrectionService attendanceCorrectionService;
 
-    @Operation(summary = "Correct an attendance record: site, work type, collection point or category (administrators)")
+    @Operation(summary = "Correct an attendance record: site, work type, field or category (administrators)")
     @PutMapping("/correction")
     public ResponseEntity<AttendanceDto> correctAttendance(
             @PathVariable UUID attendanceId,

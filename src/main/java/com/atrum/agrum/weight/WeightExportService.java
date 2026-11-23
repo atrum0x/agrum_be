@@ -44,12 +44,12 @@ public class WeightExportService {
 
     private static final String[] HISTORY_COLUMNS = {
             "Date", "Time", "Entry Sequence", "Worker EMP No", "Worker Name", "Employment Category",
-            "Supervisor", "Site", "Collection Point", "Work Type", "Entry Type", "Weight Picked (kg)",
+            "Supervisor", "Site", "Division", "Field", "Work Type", "Entry Type", "Weight Picked (kg)",
             "Variance (%)", "Weight After Variance (kg)", "Line State", "Approval Status",
             "Requested By / At", "Change Comment", "Approved / Disapproved By / At", "Weight Record ID"
     };
     private static final String[] SUMMARY_COLUMNS = {
-            "Date", "Worker EMP No", "Worker Name", "Employment Category", "Site", "Collection Point",
+            "Date", "Worker EMP No", "Worker Name", "Employment Category", "Site", "Division", "Field",
             "Work Type", "No. of Transactions", "Daily Total After Variance (kg)", "Day Classification",
             "Overweight (kg)", "Last Updated"
     };
@@ -83,8 +83,9 @@ public class WeightExportService {
                 w.text(label(row.attendanceCategory()));
                 w.text(row.supervisorName());
                 w.text(row.estateName());
-                w.text(row.cpName() != null ? row.cpName() : row.cpCode());
-                w.text(row.workType());
+                w.text(orCode(row.divisionDescription(), row.divisionCode()));
+                w.text(orCode(row.fieldDescription(), row.fieldCode()));
+                w.text(orCode(row.workTypeName(), row.workType()));
                 w.text(label(row.entryType()));
                 w.decimal(row.weightKg(), Format.WEIGHT);
                 w.decimal(row.variancePercent(), Format.VARIANCE);
@@ -111,8 +112,9 @@ public class WeightExportService {
                 w.text(row.employeeName());
                 w.text(label(row.attendanceCategory()));
                 w.text(row.estateName());
-                w.text(row.cpCode());
-                w.text(row.workType());
+                w.text(orCode(row.divisionDescription(), row.divisionCode()));
+                w.text(orCode(row.fieldDescription(), row.fieldCode()));
+                w.text(orCode(row.workTypeName(), row.workType()));
                 w.integer(row.transactionCount());
                 w.decimal(row.dailyTotalKg(), Format.WEIGHT);
                 w.text(label(row.dayClassification()));
@@ -120,6 +122,11 @@ public class WeightExportService {
                 w.dateTime(LocalDateTime.ofInstant(row.calculatedAt(), clock.getZone()));
             }
         });
+    }
+
+    // The description or name shown on screen; the code when it has none
+    private static String orCode(String text, String code) {
+        return text != null ? text : code;
     }
 
     // DS-04

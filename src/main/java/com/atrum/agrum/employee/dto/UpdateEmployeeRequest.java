@@ -17,7 +17,8 @@ public record UpdateEmployeeRequest(
         LocalDate startDate,
         LocalDate endDate,
         String defaultEstateId,
-        String defaultCollectionPointCode,
+        String defaultDivisionCode,
+        String defaultFieldCode,
         String homeEstateId
 ) {
 }

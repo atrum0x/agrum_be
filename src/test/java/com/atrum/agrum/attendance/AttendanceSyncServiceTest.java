@@ -110,7 +110,7 @@ class AttendanceSyncServiceTest {
     }
 
     private static SyncAttendanceRecord record(String employeeCode) {
-        return new SyncAttendanceRecord(UUID.randomUUID(), employeeCode, "S01", "PLUCKING", "CP1",
+        return new SyncAttendanceRecord(UUID.randomUUID(), employeeCode, "S01", "PLUCKING", "D1", "CP1",
                 AttendanceCategory.REGULAR, LocalDate.of(2026, 10, 24), Instant.parse("2026-10-24T04:00:00Z"));
     }
 }

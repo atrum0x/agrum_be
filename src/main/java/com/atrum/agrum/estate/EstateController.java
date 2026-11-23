@@ -27,7 +27,7 @@ public class EstateController {
         return ResponseEntity.ok(estateService.createEstate(request));
     }
 
-    @Operation(summary = "Change a site's settings: standards, variance, daily limit, status")
+    @Operation(summary = "Change a site's settings: qty norms, variance, daily limit, status")
     @PutMapping("/{estateId}")
     public ResponseEntity<Estate> updateEstate(
             @PathVariable String estateId,

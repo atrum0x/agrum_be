@@ -13,11 +13,13 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class WorkTypeService {
 
-    private static final int MAX_WORK_TYPE_LENGTH = 50;
+    private static final int MAX_CODE_LENGTH = 20;
+    private static final int MAX_NAME_LENGTH = 50;
 
     private final WorkTypeRepository workTypeRepository;
     private final EstateRepository estateRepository;
@@ -41,21 +43,24 @@ public class WorkTypeService {
         if (!estateRepository.existsById(estateId)) {
             throw new IllegalArgumentException("Site not found: " + estateId);
         }
-        if (!StringUtils.hasText(request.workType())) {
-            throw new IllegalArgumentException("Work type is required");
+        // SB-16: mandatory, up to 20 characters, typed text becomes capitals (FSD 2.3 B.4)
+        if (!StringUtils.hasText(request.workTypeCode())) {
+            throw new IllegalArgumentException("Please enter the Work Type ID.");
         }
-        String code = request.workType().trim();
-        if (code.length() > MAX_WORK_TYPE_LENGTH) {
-            throw new IllegalArgumentException("Work type must be at most " + MAX_WORK_TYPE_LENGTH + " characters");
+        String code = request.workTypeCode().trim().toUpperCase(Locale.ROOT);
+        if (code.length() > MAX_CODE_LENGTH) {
+            throw new IllegalArgumentException("Work Type ID must be at most " + MAX_CODE_LENGTH + " characters.");
         }
-        // SB-11: unique within the site; save() would silently replace an existing one
+        // SB-16: unique within the site; save() would silently replace an existing one
         if (workTypeRepository.existsById(new WorkTypeId(estateId, code))) {
-            throw new IllegalArgumentException(SiteMessages.SB_11_WORK_TYPE_EXISTS);
+            throw new IllegalArgumentException(SiteMessages.SB_16_WORK_TYPE_ID_EXISTS);
         }
+        String name = requireName(estateId, request.name(), code);
 
         WorkType workType = new WorkType();
-        workType.setWorkType(code);
+        workType.setWorkTypeCode(code);
         workType.setEstateId(estateId);
+        workType.setName(name);
         workType.setWeighingRequired(requireWeighingRequired(request.weighingRequired()));
         return WorkTypeDto.from(workTypeRepository.save(workType));
     }
@@ -64,12 +69,18 @@ public class WorkTypeService {
     public WorkTypeDto updateWorkType(String estateId, String code, UpdateWorkTypeRequest request) {
         WorkType workType = workTypeRepository.findInEstate(estateId, code)
                 .orElseThrow(() -> new IllegalArgumentException("Work type " + code + " not found in site " + estateId));
+        String name = requireName(estateId, request.name(), code);
+        // SB-12: the name can't change once attendance uses the work type
+        if (!name.equals(workType.getName()) && workTypeRepository.isUsedInAttendance(estateId, List.of(code))) {
+            throw new IllegalArgumentException(SiteMessages.SB_12_IN_USE);
+        }
         boolean weighingRequired = requireWeighingRequired(request.weighingRequired());
         // SB-13
         if (workType.isWeighingRequired() && !weighingRequired
                 && workTypeRepository.isWeighedOn(estateId, code, LocalDate.now(clock))) {
             throw new IllegalArgumentException(SiteMessages.SB_13_WEIGHED_TODAY);
         }
+        workType.setName(name);
         workType.setWeighingRequired(weighingRequired);
         return WorkTypeDto.from(workTypeRepository.save(workType));
     }
@@ -88,6 +99,21 @@ public class WorkTypeService {
             throw new IllegalArgumentException(SiteMessages.SB_12_IN_USE);
         }
         workTypeRepository.deleteAll(workTypes);
+    }
+
+    private String requireName(String estateId, String name, String code) {
+        // SB-11: mandatory and unique within the site
+        if (!StringUtils.hasText(name)) {
+            throw new IllegalArgumentException("Please enter the Work Type.");
+        }
+        String trimmed = name.trim();
+        if (trimmed.length() > MAX_NAME_LENGTH) {
+            throw new IllegalArgumentException("Work Type must be at most " + MAX_NAME_LENGTH + " characters.");
+        }
+        if (workTypeRepository.nameExists(estateId, trimmed, code)) {
+            throw new IllegalArgumentException(SiteMessages.SB_11_WORK_TYPE_EXISTS);
+        }
+        return trimmed;
     }
 
     private boolean requireWeighingRequired(Boolean weighingRequired) {

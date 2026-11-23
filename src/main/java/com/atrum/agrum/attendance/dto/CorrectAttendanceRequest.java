@@ -8,7 +8,8 @@ import com.atrum.agrum.attendance.AttendanceCategory;
 public record CorrectAttendanceRequest(
         String estateId,
         String workType,
-        String cpCode,
+        String divisionCode,
+        String fieldCode,
         AttendanceCategory attendanceCategory,
         String reason,
         // The version the user opened, for AT-18
