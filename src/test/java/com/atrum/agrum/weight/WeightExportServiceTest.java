@@ -43,9 +43,11 @@ class WeightExportServiceTest {
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file.content()))) {
             XSSFSheet sheet = workbook.getSheet("Weight History");
             Row header = sheet.getRow(0);
-            assertThat(header.getLastCellNum()).isEqualTo((short) 20);
+            assertThat(header.getLastCellNum()).isEqualTo((short) 21);
             assertThat(header.getCell(0).getStringCellValue()).isEqualTo("Date");
-            assertThat(header.getCell(19).getStringCellValue()).isEqualTo("Weight Record ID");
+            assertThat(header.getCell(8).getStringCellValue()).isEqualTo("Division");
+            assertThat(header.getCell(9).getStringCellValue()).isEqualTo("Field");
+            assertThat(header.getCell(20).getStringCellValue()).isEqualTo("Weight Record ID");
             assertThat(workbook.getFontAt(header.getCell(0).getCellStyle().getFontIndex()).getBold()).isTrue();
             assertThat(sheet.getPaneInformation().isFreezePane()).isTrue();
             assertThat(sheet.getCTWorksheet().isSetAutoFilter()).isTrue();
@@ -58,31 +60,36 @@ class WeightExportServiceTest {
             assertThat(row.getCell(1).getNumericCellValue()).isEqualTo((10 * 3600 + 15 * 60) / 86_400.0);
             assertThat(row.getCell(1).getCellStyle().getDataFormatString()).isEqualTo("hh:mm");
             assertThat(row.getCell(2).getNumericCellValue()).isEqualTo(2);
-            assertThat(row.getCell(11).getCellType()).isEqualTo(CellType.NUMERIC);
-            assertThat(row.getCell(11).getNumericCellValue()).isEqualTo(14.00);
-            assertThat(row.getCell(11).getCellStyle().getDataFormatString()).isEqualTo("0.00");
-            assertThat(row.getCell(12).getCellStyle().getDataFormatString()).isEqualTo("+0.00;-0.00;0.00");
-            assertThat(row.getCell(13).getNumericCellValue()).isEqualTo(14.28);
-            assertThat(row.getCell(14).getStringCellValue()).isEqualTo("Recorded");
-            assertThat(row.getCell(15).getStringCellValue()).isEqualTo("Approved");
-            assertThat(row.getCell(16).getStringCellValue()).isEqualTo("sup1 24/10/2026 12:00");
-            assertThat(row.getCell(18).getStringCellValue()).isEqualTo("approver1 24/10/2026 14:00");
+            // TC-104: Division, Field and Work Type show their descriptions
+            assertThat(row.getCell(8).getStringCellValue()).isEqualTo("North");
+            assertThat(row.getCell(9).getStringCellValue()).isEqualTo("Main CP");
+            assertThat(row.getCell(10).getStringCellValue()).isEqualTo("Plucking");
+            assertThat(row.getCell(12).getCellType()).isEqualTo(CellType.NUMERIC);
+            assertThat(row.getCell(12).getNumericCellValue()).isEqualTo(14.00);
+            assertThat(row.getCell(12).getCellStyle().getDataFormatString()).isEqualTo("0.00");
+            assertThat(row.getCell(13).getCellStyle().getDataFormatString()).isEqualTo("+0.00;-0.00;0.00");
+            assertThat(row.getCell(14).getNumericCellValue()).isEqualTo(14.28);
+            assertThat(row.getCell(15).getStringCellValue()).isEqualTo("Recorded");
+            assertThat(row.getCell(16).getStringCellValue()).isEqualTo("Approved");
+            assertThat(row.getCell(17).getStringCellValue()).isEqualTo("sup1 24/10/2026 12:00");
+            assertThat(row.getCell(19).getStringCellValue()).isEqualTo("approver1 24/10/2026 14:00");
             assertThat(row.getCell(0).getCellStyle().getFillPattern()).isEqualTo(FillPatternType.NO_FILL);
 
             // TC-70 / TC-71: cancelled rows are included and greyed; empty change cells show "—"
             Row cancelledRow = sheet.getRow(2);
-            assertThat(cancelledRow.getCell(14).getStringCellValue()).isEqualTo("Cancelled");
+            assertThat(cancelledRow.getCell(15).getStringCellValue()).isEqualTo("Cancelled");
             assertThat(cancelledRow.getCell(0).getCellStyle().getFillPattern()).isEqualTo(FillPatternType.SOLID_FOREGROUND);
-            assertThat(cancelledRow.getCell(16).getStringCellValue()).isEqualTo("—");
             assertThat(cancelledRow.getCell(17).getStringCellValue()).isEqualTo("—");
             assertThat(cancelledRow.getCell(18).getStringCellValue()).isEqualTo("—");
+            assertThat(cancelledRow.getCell(19).getStringCellValue()).isEqualTo("—");
         }
     }
 
     @Test
-    void TC84_summaryExport_hasTwelveColumnsAndNoTotalsRow() throws IOException {
+    void TC84_summaryExport_hasThirteenColumnsAndNoTotalsRow() throws IOException {
         DailyWeightSummaryDto row = new DailyWeightSummaryDto(LocalDate.of(2026, 10, 23), "E001", "Kamala Perera",
-                AttendanceCategory.REGULAR, "S01", "Estate One", "CP1", "PLUCKING", 2,
+                AttendanceCategory.REGULAR, "S01", "Estate One", "D1", "North", "CP1", "Main CP", "PLUCKING",
+                "Plucking", 2,
                 new BigDecimal("25.50"), DayClassification.FULL_DAY, new BigDecimal("2.50"),
                 Instant.parse("2026-10-23T16:30:00Z"));
 
@@ -91,17 +98,21 @@ class WeightExportServiceTest {
         assertThat(file.fileName()).isEqualTo("AgriWeight_DailySummary_20261024_1505.xlsx");
         try (XSSFWorkbook workbook = new XSSFWorkbook(new ByteArrayInputStream(file.content()))) {
             Sheet sheet = workbook.getSheet("Daily Summary");
-            assertThat(sheet.getRow(0).getLastCellNum()).isEqualTo((short) 12);
+            assertThat(sheet.getRow(0).getLastCellNum()).isEqualTo((short) 13);
+            assertThat(sheet.getRow(0).getCell(5).getStringCellValue()).isEqualTo("Division");
             assertThat(sheet.getLastRowNum()).isEqualTo(1);
             Row data = sheet.getRow(1);
             assertThat(data.getCell(0).getLocalDateTimeCellValue()).isEqualTo(LocalDateTime.of(2026, 10, 23, 0, 0));
-            assertThat(data.getCell(7).getNumericCellValue()).isEqualTo(2);
-            assertThat(data.getCell(8).getNumericCellValue()).isEqualTo(25.50);
-            assertThat(data.getCell(9).getStringCellValue()).isEqualTo("Full Day");
-            assertThat(data.getCell(10).getNumericCellValue()).isEqualTo(2.50);
+            assertThat(data.getCell(5).getStringCellValue()).isEqualTo("North");
+            assertThat(data.getCell(6).getStringCellValue()).isEqualTo("Main CP");
+            assertThat(data.getCell(7).getStringCellValue()).isEqualTo("Plucking");
+            assertThat(data.getCell(8).getNumericCellValue()).isEqualTo(2);
+            assertThat(data.getCell(9).getNumericCellValue()).isEqualTo(25.50);
+            assertThat(data.getCell(10).getStringCellValue()).isEqualTo("Full Day");
+            assertThat(data.getCell(11).getNumericCellValue()).isEqualTo(2.50);
             // 22:00 Colombo
-            assertThat(data.getCell(11).getLocalDateTimeCellValue()).isEqualTo(LocalDateTime.of(2026, 10, 23, 22, 0));
-            assertThat(data.getCell(11).getCellStyle().getDataFormatString()).isEqualTo("dd/mm/yyyy hh:mm");
+            assertThat(data.getCell(12).getLocalDateTimeCellValue()).isEqualTo(LocalDateTime.of(2026, 10, 23, 22, 0));
+            assertThat(data.getCell(12).getCellStyle().getDataFormatString()).isEqualTo("dd/mm/yyyy hh:mm");
         }
     }
 
@@ -114,7 +125,8 @@ class WeightExportServiceTest {
     private static WeightHistoryRowDto historyRow(LineState lineState, ApprovalStatus status, boolean withChange) {
         return new WeightHistoryRowDto(UUID.randomUUID(), LocalDate.of(2026, 10, 24),
                 Instant.parse("2026-10-24T04:45:00Z"), 2, "E001", "Kamala Perera", AttendanceCategory.REGULAR,
-                "sup1", "Sunil Silva", "S01", "Estate One", "CP1", "Main CP", "PLUCKING", EntryType.AUTOMATIC, null, null,
+                "sup1", "Sunil Silva", "S01", "Estate One", "D1", "North", "CP1", "Main CP", "PLUCKING", "Plucking",
+                EntryType.AUTOMATIC, null, null,
                 new BigDecimal("13.00"), new BigDecimal("14.00"), new BigDecimal("2.00"), new BigDecimal("14.28"),
                 lineState, status,
                 withChange ? 7L : null,

@@ -9,12 +9,13 @@ import com.atrum.agrum.attendance.dto.RecordAttendanceRequest;
 import com.atrum.agrum.attendance.dto.SyncAttendanceRecord;
 import com.atrum.agrum.attendance.dto.SyncAttendanceResult;
 import com.atrum.agrum.attendance.dto.SyncStatus;
-import com.atrum.agrum.collectionPoint.CollectionPoint;
+import com.atrum.agrum.division.Division;
 import com.atrum.agrum.employee.Employee;
 import com.atrum.agrum.employee.EmployeeRepository;
 import com.atrum.agrum.employee.EmploymentStatus;
 import com.atrum.agrum.estate.Estate;
 import com.atrum.agrum.exception.InsufficientPermissionException;
+import com.atrum.agrum.field.Field;
 import com.atrum.agrum.security.PermissionChecker;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.UserService;
@@ -55,8 +56,8 @@ import static org.mockito.Mockito.when;
 
 /**
  * Recording attendance on the web and from phones (FSD 2.6, TC-31..TC-36, TC-38, TC-39, TC-58), with
- * the FSD section 11 test data: site S01, Plucking, collection point CP1, workers E001..E010 whose
- * default site is S01, and E005 lent from S02. Site, work type and collection point checks are in
+ * the FSD section 11 test data: site S01, Plucking, field CP1, workers E001..E010 whose
+ * default site is S01, and E005 lent from S02. Site, work type and field checks are in
  * AttendanceSiteValidatorTest; the estate filter needs a database and is not covered here.
  */
 @ExtendWith(MockitoExtension.class)
@@ -94,11 +95,19 @@ class AttendanceServiceTest {
         s01 = estate("S01");
         Estate s02 = estate("S02");
         WorkType plucking = new WorkType();
-        plucking.setWorkType("PLUCKING");
+        plucking.setWorkTypeCode("PLUCKING");
+        plucking.setName("Plucking");
         plucking.setWeighingRequired(true);
-        CollectionPoint cp1 = new CollectionPoint();
-        cp1.setCpCode("CP1");
-        when(siteValidator.resolve("S01", "PLUCKING", "CP1")).thenReturn(new AttendanceSite(s01, plucking, cp1));
+        Division d1 = new Division();
+        d1.setEstateId("S01");
+        d1.setDivisionCode("D1");
+        d1.setDescription("North");
+        Field cp1 = new Field();
+        cp1.setFieldCode("CP1");
+        cp1.setDivision(d1);
+        cp1.setDescription("North shed");
+        when(siteValidator.resolve("S01", "PLUCKING", "D1", "CP1"))
+                .thenReturn(new AttendanceSite(s01, plucking, d1, cp1));
 
         supervisor = new AppUser();
         supervisor.setUsername("SUP01");
@@ -129,7 +138,7 @@ class AttendanceServiceTest {
     // ---- Web batch -------------------------------------------------------------------------
 
     @Test
-    void TC31_TC39_recordsOneRowPerWorkerForTodayWithTheBatchSiteWorkTypeAndCollectionPoint() {
+    void TC31_TC39_recordsOneRowPerWorkerForTodayWithTheBatchSiteWorkTypeAndField() {
         List<String> codes = List.of("E001", "E002", "E003", "E004", "E006", "E007", "E008", "E009", "E010", "E099");
 
         List<AttendanceDto> saved = service.recordAttendance(batch(codes.toArray(String[]::new)));
@@ -140,8 +149,9 @@ class AttendanceServiceTest {
         assertThat(rows).allSatisfy(row -> {
             assertThat(row.getAttendanceDate()).isEqualTo(TODAY);
             assertThat(row.getEstateId()).isEqualTo("S01");
-            assertThat(row.getWorkType().getWorkType()).isEqualTo("PLUCKING");
-            assertThat(row.getCollectionPoint().getCpCode()).isEqualTo("CP1");
+            assertThat(row.getWorkTypeCode()).isEqualTo("PLUCKING");
+            assertThat(row.getDivisionCode()).isEqualTo("D1");
+            assertThat(row.getField().getFieldCode()).isEqualTo("CP1");
             assertThat(row.getAttendanceCategory()).isEqualTo(AttendanceCategory.REGULAR);
             assertThat(row.getRecordedBy()).isSameAs(supervisor);
             assertThat(row.getRecordedAt()).isEqualTo(NOW);
@@ -152,9 +162,9 @@ class AttendanceServiceTest {
 
     @Test
     void AT01_noWorkers_isRefused() {
-        assertThatThrownBy(() -> service.recordAttendance(new RecordAttendanceRequest("S01", "PLUCKING", "CP1", List.of())))
+        assertThatThrownBy(() -> service.recordAttendance(new RecordAttendanceRequest("S01", "PLUCKING", "D1", "CP1", List.of())))
                 .hasMessage(AttendanceMessages.AT_01_NO_WORKERS);
-        assertThatThrownBy(() -> service.recordAttendance(new RecordAttendanceRequest("S01", "PLUCKING", "CP1", null)))
+        assertThatThrownBy(() -> service.recordAttendance(new RecordAttendanceRequest("S01", "PLUCKING", "D1", "CP1", null)))
                 .hasMessage(AttendanceMessages.AT_01_NO_WORKERS);
     }
 
@@ -221,7 +231,7 @@ class AttendanceServiceTest {
 
     @Test
     void AT08_missingCategoryOnOneWorker_isRefused() {
-        RecordAttendanceRequest request = new RecordAttendanceRequest("S01", "PLUCKING", "CP1", List.of(
+        RecordAttendanceRequest request = new RecordAttendanceRequest("S01", "PLUCKING", "D1", "CP1", List.of(
                 new AttendanceWorkerRequest("E001", AttendanceCategory.REGULAR),
                 new AttendanceWorkerRequest("E002", null)));
 
@@ -301,7 +311,7 @@ class AttendanceServiceTest {
         assertThat(service.recordSynced(record).status()).isEqualTo(SyncStatus.SENT);
         verify(attendanceRepository, never()).saveAllAndFlush(anyList());
         // Even a now-invalid record is not re-checked once it was received
-        verify(siteValidator, never()).resolve(any(), any(), any());
+        verify(siteValidator, never()).resolve(any(), any(), any(), any());
     }
 
     @Test
@@ -356,7 +366,7 @@ class AttendanceServiceTest {
 
     @Test
     void phoneRecordWithoutAnId_isRefused() {
-        SyncAttendanceRecord record = new SyncAttendanceRecord(null, "E001", "S01", "PLUCKING", "CP1",
+        SyncAttendanceRecord record = new SyncAttendanceRecord(null, "E001", "S01", "PLUCKING", "D1", "CP1",
                 AttendanceCategory.REGULAR, TODAY, NOW);
 
         assertThatThrownBy(() -> service.recordSynced(record)).hasMessage("Attendance ID is required");
@@ -372,11 +382,11 @@ class AttendanceServiceTest {
 
     @Test
     void searchDefaultsToTodayAndRefusesAReversedRange() {
-        service.searchAttendance(new AttendanceSearchRequest(null, null, null, null, null, null, null));
-        verify(attendanceRepository).search(TODAY, TODAY, "", "", "", "", "");
+        service.searchAttendance(new AttendanceSearchRequest(null, null, null, null, null, null, null, null));
+        verify(attendanceRepository).search(TODAY, TODAY, "", "", "", "", "", "");
 
         assertThatThrownBy(() -> service.searchAttendance(
-                new AttendanceSearchRequest(TODAY, TODAY.minusDays(1), null, null, null, null, null)))
+                new AttendanceSearchRequest(TODAY, TODAY.minusDays(1), null, null, null, null, null, null)))
                 .hasMessage("Date From must be on or before Date To.");
     }
 
@@ -390,13 +400,13 @@ class AttendanceServiceTest {
     }
 
     private static RecordAttendanceRequest batch(String... codes) {
-        return new RecordAttendanceRequest("S01", "PLUCKING", "CP1", IntStream.range(0, codes.length)
+        return new RecordAttendanceRequest("S01", "PLUCKING", "D1", "CP1", IntStream.range(0, codes.length)
                 .mapToObj(i -> new AttendanceWorkerRequest(codes[i], AttendanceCategory.REGULAR))
                 .toList());
     }
 
     private static SyncAttendanceRecord phone(String code, LocalDate date, Instant recordedAt) {
-        return new SyncAttendanceRecord(UUID.randomUUID(), code, "S01", "PLUCKING", "CP1",
+        return new SyncAttendanceRecord(UUID.randomUUID(), code, "S01", "PLUCKING", "D1", "CP1",
                 AttendanceCategory.REGULAR, date, recordedAt);
     }
 

@@ -11,7 +11,8 @@ public record AttendanceSearchRequest(
         // EMP No or name
         String employee,
         String estateId,
-        String cpCode,
+        String divisionCode,
+        String fieldCode,
         String workType,
         String recordedBy
 ) {}

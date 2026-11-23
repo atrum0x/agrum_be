@@ -1,9 +1,12 @@
 package com.atrum.agrum.weight;
 
 import com.atrum.agrum.attendance.AttendanceCategory;
+import com.atrum.agrum.division.Division;
 import com.atrum.agrum.employee.Employee;
 import com.atrum.agrum.estate.Estate;
+import com.atrum.agrum.field.Field;
 import com.atrum.agrum.security.EstateSecuredEntity;
+import com.atrum.agrum.workType.WorkType;
 import jakarta.persistence.*;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
@@ -50,12 +53,36 @@ public class DailyWeightSummary extends EstateSecuredEntity {
     @JoinColumn(name = "estate_id", insertable = false, updatable = false)
     private Estate estate;
 
-    // Plain codes, copied from the attendance at run time
-    @Column(name = "collection_point_code", nullable = false)
-    private String collectionPointCode;
+    // Plain codes, copied from the attendance at run time. The mappings below are read-only, for the names
+    @Column(name = "division_code", nullable = false, length = 30)
+    private String divisionCode;
 
-    @Column(name = "work_type", nullable = false, length = 50)
-    private String workType;
+    @Column(name = "field_code", nullable = false, length = 30)
+    private String fieldCode;
+
+    @Column(name = "work_type_code", nullable = false, length = 20)
+    private String workTypeCode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumns({
+            @JoinColumn(name = "estate_id", referencedColumnName = "estate_id", insertable = false, updatable = false),
+            @JoinColumn(name = "division_code", referencedColumnName = "division_code", insertable = false, updatable = false)
+    })
+    private Division division;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumns({
+            @JoinColumn(name = "estate_id", referencedColumnName = "estate_id", insertable = false, updatable = false),
+            @JoinColumn(name = "field_code", referencedColumnName = "field_code", insertable = false, updatable = false)
+    })
+    private Field field;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumns({
+            @JoinColumn(name = "estate_id", referencedColumnName = "estate_id", insertable = false, updatable = false),
+            @JoinColumn(name = "work_type_code", referencedColumnName = "work_type_code", insertable = false, updatable = false)
+    })
+    private WorkType workType;
 
     // D-18: the attendance category of the day
     @Enumerated(EnumType.STRING)

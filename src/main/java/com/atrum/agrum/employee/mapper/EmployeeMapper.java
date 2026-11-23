@@ -17,8 +17,10 @@ public interface EmployeeMapper {
     EmployeeDto toDto(Employee employee);
 
     @Mapping(target = "defaultEstate", ignore = true)
-    @Mapping(target = "defaultCollectionPoint", ignore = true)
-    @Mapping(target = "defaultCollectionPointCode", ignore = true)
+    @Mapping(target = "defaultDivision", ignore = true)
+    @Mapping(target = "defaultDivisionCode", ignore = true)
+    @Mapping(target = "defaultField", ignore = true)
+    @Mapping(target = "defaultFieldCode", ignore = true)
     @Mapping(target = "homeEstate", ignore = true)
     @Mapping(target = "userAccount", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
@@ -26,8 +28,10 @@ public interface EmployeeMapper {
     Employee fromCreateRequest(CreateEmployeeRequest request);
 
     @Mapping(target = "defaultEstate", ignore = true)
-    @Mapping(target = "defaultCollectionPoint", ignore = true)
-    @Mapping(target = "defaultCollectionPointCode", ignore = true)
+    @Mapping(target = "defaultDivision", ignore = true)
+    @Mapping(target = "defaultDivisionCode", ignore = true)
+    @Mapping(target = "defaultField", ignore = true)
+    @Mapping(target = "defaultFieldCode", ignore = true)
     @Mapping(target = "homeEstate", ignore = true)
     @Mapping(target = "employeeCode", ignore = true)
     @Mapping(target = "userAccount", ignore = true)

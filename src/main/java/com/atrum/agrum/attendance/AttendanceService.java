@@ -22,8 +22,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.atrum.agrum.security.PermissionChecker;
 import com.atrum.agrum.exception.InsufficientPermissionException;
+import com.atrum.agrum.security.PermissionChecker;
 import org.springframework.util.StringUtils;
 
 import java.time.Clock;
@@ -81,8 +81,8 @@ public class AttendanceService {
                         employee.getFullName(),
                         idOf(employee.getDefaultEstate()),
                         idOf(employee.getHomeEstate()),
-                        employee.getDefaultCollectionPoint() == null
-                                ? null : employee.getDefaultCollectionPoint().getCpCode(),
+                        employee.getDefaultDivisionCode(),
+                        employee.getDefaultFieldCode(),
                         employee.getEmployeeCategory()))
                 .toList();
     }
@@ -98,7 +98,8 @@ public class AttendanceService {
         // AT-11: the server date on web
         LocalDate today = LocalDate.now(clock);
         Instant now = clock.instant();
-        AttendanceSite site = siteValidator.resolve(request.estateId(), request.workType(), request.cpCode());
+        AttendanceSite site = siteValidator.resolve(request.estateId(), request.workType(), request.divisionCode(),
+                request.fieldCode());
 
         List<String> employeeCodes = request.workers().stream()
                 .map(worker -> worker.employeeCode() == null ? "" : worker.employeeCode().trim())
@@ -137,7 +138,8 @@ public class AttendanceService {
         }
         AppUser user = userService.getCurrentUser();
         checkRecordedOnItsDate(record);
-        AttendanceSite site = siteValidator.resolve(record.estateId(), record.workType(), record.cpCode());
+        AttendanceSite site = siteValidator.resolve(record.estateId(), record.workType(), record.divisionCode(),
+                record.fieldCode());
 
         String employeeCode = record.employeeCode() == null ? "" : record.employeeCode().trim();
         Employee employee = employeeRepository.findById(employeeCode)
@@ -160,7 +162,8 @@ public class AttendanceService {
         }
 
         List<Attendance> rows = attendanceRepository.search(dateFrom, dateTo,
-                term(request.employee()), term(request.estateId()), term(request.cpCode()),
+                term(request.employee()), term(request.estateId()), term(request.divisionCode()),
+                term(request.fieldCode()),
                 term(request.workType()), term(request.recordedBy()));
         Map<UUID, AttendanceCorrection> lastCorrections = findLastCorrections(
                 rows.stream().map(Attendance::getAttendanceId).toList());
@@ -233,7 +236,8 @@ public class AttendanceService {
         attendance.setEstate(site.estate());
         attendance.setHomeEstate(employee.getHomeEstate());
         attendance.setWorkType(site.workType());
-        attendance.setCollectionPoint(site.collectionPoint());
+        attendance.setDivision(site.division());
+        attendance.setField(site.field());
         attendance.setAttendanceCategory(category);
         attendance.setRecordedBy(user);
         attendance.setRecordedAt(recordedAt);

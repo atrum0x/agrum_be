@@ -1,8 +1,9 @@
 package com.atrum.agrum.employee;
 
 import com.atrum.agrum.attendance.AttendanceCategory;
-import com.atrum.agrum.collectionPoint.CollectionPoint;
+import com.atrum.agrum.division.Division;
 import com.atrum.agrum.estate.Estate;
+import com.atrum.agrum.field.Field;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -86,22 +87,41 @@ public class Employee {
     private Estate defaultEstate;
 
     /**
-     * Normal collection point; must belong to defaultEstate (PB-11). The code is written here; the
-     * collection point is looked up by (default site, code), so this mapping is read-only.
+     * Normal division; must belong to defaultEstate (PB-16). The code is written here; the division
+     * is looked up by (default site, code), so this mapping is read-only.
      */
-    @Column(name = "default_collection_point_code")
-    private String defaultCollectionPointCode;
+    @Column(name = "default_division_code", length = 30)
+    private String defaultDivisionCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumns({
             @JoinColumn(name = "default_estate_id", referencedColumnName = "estate_id", insertable = false, updatable = false),
-            @JoinColumn(name = "default_collection_point_code", referencedColumnName = "cp_code", insertable = false, updatable = false)
+            @JoinColumn(name = "default_division_code", referencedColumnName = "division_code", insertable = false, updatable = false)
     })
-    private CollectionPoint defaultCollectionPoint;
+    private Division defaultDivision;
 
-    public void setDefaultCollectionPoint(CollectionPoint collectionPoint) {
-        this.defaultCollectionPoint = collectionPoint;
-        this.defaultCollectionPointCode = collectionPoint == null ? null : collectionPoint.getCpCode();
+    public void setDefaultDivision(Division division) {
+        this.defaultDivision = division;
+        this.defaultDivisionCode = division == null ? null : division.getDivisionCode();
+    }
+
+    /**
+     * Normal field; must belong to defaultDivision (PB-11). The code is written here; the field is
+     * looked up by (default site, code), so this mapping is read-only.
+     */
+    @Column(name = "default_field_code")
+    private String defaultFieldCode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumns({
+            @JoinColumn(name = "default_estate_id", referencedColumnName = "estate_id", insertable = false, updatable = false),
+            @JoinColumn(name = "default_field_code", referencedColumnName = "field_code", insertable = false, updatable = false)
+    })
+    private Field defaultField;
+
+    public void setDefaultField(Field field) {
+        this.defaultField = field;
+        this.defaultFieldCode = field == null ? null : field.getFieldCode();
     }
 
     @ManyToOne(fetch = FetchType.LAZY)

@@ -1,9 +1,10 @@
 package com.atrum.agrum.weight;
 
 import com.atrum.agrum.attendance.Attendance;
-import com.atrum.agrum.collectionPoint.CollectionPoint;
+import com.atrum.agrum.division.Division;
 import com.atrum.agrum.employee.Employee;
 import com.atrum.agrum.estate.Estate;
+import com.atrum.agrum.field.Field;
 import com.atrum.agrum.security.EstateSecuredEntity;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.workType.WorkType;
@@ -82,26 +83,37 @@ public class WeightRecord extends EstateSecuredEntity {
 
     // Copied from the attendance; an attendance correction copies the new value here. The code is written here; the work type is looked up by
     // (site, code), so this mapping is read-only
-    @Column(name = "work_type", nullable = false)
+    @Column(name = "work_type_code", nullable = false, length = 20)
     private String workTypeCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumns({
             @JoinColumn(name = "estate_id", referencedColumnName = "estate_id", insertable = false, updatable = false),
-            @JoinColumn(name = "work_type", referencedColumnName = "work_type", insertable = false, updatable = false)
+            @JoinColumn(name = "work_type_code", referencedColumnName = "work_type_code", insertable = false, updatable = false)
     })
     private WorkType workType;
 
     // Copied from the attendance, like the work type
-    @Column(name = "collection_point_code", nullable = false)
-    private String cpCode;
+    @Column(name = "division_code", nullable = false, length = 30)
+    private String divisionCode;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumns({
             @JoinColumn(name = "estate_id", referencedColumnName = "estate_id", insertable = false, updatable = false),
-            @JoinColumn(name = "collection_point_code", referencedColumnName = "cp_code", insertable = false, updatable = false)
+            @JoinColumn(name = "division_code", referencedColumnName = "division_code", insertable = false, updatable = false)
     })
-    private CollectionPoint collectionPoint;
+    private Division division;
+
+    // Copied from the attendance, like the work type
+    @Column(name = "field_code", nullable = false, length = 30)
+    private String fieldCode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumns({
+            @JoinColumn(name = "estate_id", referencedColumnName = "estate_id", insertable = false, updatable = false),
+            @JoinColumn(name = "field_code", referencedColumnName = "field_code", insertable = false, updatable = false)
+    })
+    private Field field;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "entry_type", nullable = false, length = 10, updatable = false)
@@ -155,11 +167,16 @@ public class WeightRecord extends EstateSecuredEntity {
 
     public void setWorkType(WorkType workType) {
         this.workType = workType;
-        this.workTypeCode = workType == null ? null : workType.getWorkType();
+        this.workTypeCode = workType == null ? null : workType.getWorkTypeCode();
     }
 
-    public void setCollectionPoint(CollectionPoint collectionPoint) {
-        this.collectionPoint = collectionPoint;
-        this.cpCode = collectionPoint == null ? null : collectionPoint.getCpCode();
+    public void setDivision(Division division) {
+        this.division = division;
+        this.divisionCode = division == null ? null : division.getDivisionCode();
+    }
+
+    public void setField(Field field) {
+        this.field = field;
+        this.fieldCode = field == null ? null : field.getFieldCode();
     }
 }

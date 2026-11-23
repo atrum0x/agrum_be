@@ -15,7 +15,8 @@ public record SyncAttendanceRecord(
         String employeeCode,
         String estateId,
         String workType,
-        String cpCode,
+        String divisionCode,
+        String fieldCode,
         AttendanceCategory attendanceCategory,
         LocalDate attendanceDate,
         Instant recordedAt

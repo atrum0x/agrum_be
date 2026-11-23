@@ -55,11 +55,12 @@ public class AttendanceController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String employee,
             @RequestParam(required = false) String estateId,
-            @RequestParam(required = false) String cpCode,
+            @RequestParam(required = false) String divisionCode,
+            @RequestParam(required = false) String fieldCode,
             @RequestParam(required = false) String workType,
             @RequestParam(required = false) String recordedBy) {
         return ResponseEntity.ok(attendanceService.searchAttendance(new AttendanceSearchRequest(
-                dateFrom, dateTo, employee, estateId, cpCode, workType, recordedBy)));
+                dateFrom, dateTo, employee, estateId, divisionCode, fieldCode, workType, recordedBy)));
     }
 
     /** Web: one batch, saved all-or-nothing. */

@@ -35,21 +35,21 @@ public class WorkTypeController {
         return ResponseEntity.ok(workTypeService.createWorkType(estateId, request));
     }
 
-    @Operation(summary = "Change a work type (e.g. Weighing Required)")
-    @PutMapping("/{workType}")
+    @Operation(summary = "Change a work type (name, Weighing Required)")
+    @PutMapping("/{workTypeCode}")
     public ResponseEntity<WorkTypeDto> updateWorkType(
             @PathVariable String estateId,
-            @PathVariable String workType,
+            @PathVariable String workTypeCode,
             @RequestBody UpdateWorkTypeRequest request) {
-        return ResponseEntity.ok(workTypeService.updateWorkType(estateId, workType, request));
+        return ResponseEntity.ok(workTypeService.updateWorkType(estateId, workTypeCode, request));
     }
 
     @Operation(summary = "Remove work types from a site")
     @PostMapping("/delete")
     public ResponseEntity<String> deleteWorkTypes(
             @PathVariable String estateId,
-            @RequestBody List<String> workTypes) {
-        workTypeService.deleteWorkTypes(estateId, workTypes);
+            @RequestBody List<String> workTypeCodes) {
+        workTypeService.deleteWorkTypes(estateId, workTypeCodes);
         return ResponseEntity.ok("Work types deleted from site " + estateId);
     }
 }

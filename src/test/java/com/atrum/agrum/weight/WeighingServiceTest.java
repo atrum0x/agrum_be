@@ -2,10 +2,11 @@ package com.atrum.agrum.weight;
 
 import com.atrum.agrum.attendance.Attendance;
 import com.atrum.agrum.attendance.AttendanceRepository;
-import com.atrum.agrum.collectionPoint.CollectionPoint;
+import com.atrum.agrum.division.Division;
 import com.atrum.agrum.employee.Employee;
 import com.atrum.agrum.estate.Estate;
 import com.atrum.agrum.exception.InsufficientPermissionException;
+import com.atrum.agrum.field.Field;
 import com.atrum.agrum.security.PermissionChecker;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.UserService;
@@ -80,11 +81,18 @@ class WeighingServiceTest {
         site.setVariancePercent(new BigDecimal("2.00"));
 
         plucking = new WorkType();
-        plucking.setWorkType("PLUCKING");
+        plucking.setWorkTypeCode("PLUCKING");
+        plucking.setName("Plucking");
         plucking.setWeighingRequired(true);
 
-        CollectionPoint cp = new CollectionPoint();
-        cp.setCpCode("CP1");
+        Division d1 = new Division();
+        d1.setEstateId("S01");
+        d1.setDivisionCode("D1");
+        d1.setDescription("North");
+        Field cp = new Field();
+        cp.setFieldCode("CP1");
+        cp.setDivision(d1);
+        cp.setDescription("North shed");
 
         Employee employee = new Employee();
         employee.setEmployeeCode("E001");
@@ -96,7 +104,8 @@ class WeighingServiceTest {
         attendance.setEstateId("S01");
         attendance.setEstate(site);
         attendance.setWorkType(plucking);
-        attendance.setCollectionPoint(cp);
+        attendance.setDivision(d1);
+        attendance.setField(cp);
 
         AppUser supervisor = new AppUser();
         supervisor.setUsername("sup1");
@@ -119,9 +128,10 @@ class WeighingServiceTest {
         assertThat(saved.originalWeightKg()).isEqualTo("12.00");
         assertThat(saved.weighDate()).isEqualTo(TODAY);
         assertThat(saved.supervisor()).isEqualTo("sup1");
-        // Site, collection point and work type come from the attendance
+        // Site, division, field and work type come from the attendance
         assertThat(saved.estateId()).isEqualTo("S01");
-        assertThat(saved.cpCode()).isEqualTo("CP1");
+        assertThat(saved.divisionCode()).isEqualTo("D1");
+        assertThat(saved.fieldCode()).isEqualTo("CP1");
         assertThat(saved.workType()).isEqualTo("PLUCKING");
         assertThat(saved.lineState()).isEqualTo(LineState.RECORDED);
         assertThat(saved.approvalStatus()).isEqualTo(ApprovalStatus.RECORDED);

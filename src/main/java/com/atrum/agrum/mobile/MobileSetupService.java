@@ -2,14 +2,16 @@ package com.atrum.agrum.mobile;
 
 import com.atrum.agrum.attendance.AttendanceRepository;
 import com.atrum.agrum.attendance.dto.AttendanceWorkerDto;
-import com.atrum.agrum.collectionPoint.CollectionPointRepository;
+import com.atrum.agrum.division.DivisionRepository;
 import com.atrum.agrum.employee.Employee;
 import com.atrum.agrum.employee.EmployeeRepository;
 import com.atrum.agrum.employee.EmploymentStatus;
 import com.atrum.agrum.estate.Estate;
 import com.atrum.agrum.estate.EstateRepository;
-import com.atrum.agrum.mobile.dto.MobileCollectionPointDto;
+import com.atrum.agrum.field.FieldRepository;
+import com.atrum.agrum.mobile.dto.MobileDivisionDto;
 import com.atrum.agrum.mobile.dto.MobileEstateDto;
+import com.atrum.agrum.mobile.dto.MobileFieldDto;
 import com.atrum.agrum.mobile.dto.MobileSetupDto;
 import com.atrum.agrum.mobile.dto.MobileWorkTypeDto;
 import com.atrum.agrum.security.PermissionChecker;
@@ -35,7 +37,8 @@ public class MobileSetupService {
     private final PermissionChecker permissionChecker;
     private final EstateRepository estateRepository;
     private final WorkTypeRepository workTypeRepository;
-    private final CollectionPointRepository collectionPointRepository;
+    private final DivisionRepository divisionRepository;
+    private final FieldRepository fieldRepository;
     private final EmployeeRepository employeeRepository;
     private final AttendanceRepository attendanceRepository;
     private final WeighingService weighingService;
@@ -57,11 +60,17 @@ public class MobileSetupService {
 
         List<MobileWorkTypeDto> workTypes = estates.stream()
                 .flatMap(estate -> workTypeRepository.findAllByEstate(estate.getId()).stream())
-                .map(wt -> new MobileWorkTypeDto(wt.getEstateId(), wt.getWorkType(), wt.isWeighingRequired()))
+                .map(wt -> new MobileWorkTypeDto(
+                        wt.getEstateId(), wt.getWorkTypeCode(), wt.getName(), wt.isWeighingRequired()))
                 .toList();
-        List<MobileCollectionPointDto> collectionPoints = estates.stream()
-                .flatMap(estate -> collectionPointRepository.findAllByEstate(estate.getId(), "").stream())
-                .map(cp -> new MobileCollectionPointDto(cp.getEstateId(), cp.getCpCode(), cp.getName(), cp.isDefault()))
+        List<MobileDivisionDto> divisions = estates.stream()
+                .flatMap(estate -> divisionRepository.findAllByEstate(estate.getId()).stream())
+                .map(d -> new MobileDivisionDto(d.getEstateId(), d.getDivisionCode(), d.getDescription()))
+                .toList();
+        List<MobileFieldDto> fields = estates.stream()
+                .flatMap(estate -> fieldRepository.findAllByEstate(estate.getId(), "", "").stream())
+                .map(f -> new MobileFieldDto(
+                        f.getEstateId(), f.getFieldCode(), f.getDivisionCode(), f.getDescription(), f.isDefault()))
                 .toList();
 
         List<AttendanceWorkerDto> workers = employeeRepository.findEmployedOn(EmploymentStatus.ACTIVE, today, "")
@@ -76,7 +85,8 @@ public class MobileSetupService {
                 employee == null ? null : idOf(employee.getDefaultEstate()),
                 estates.stream().map(MobileSetupService::toEstate).toList(),
                 workTypes,
-                collectionPoints,
+                divisions,
+                fields,
                 workers,
                 attendanceRepository.findAllEmployeeCodesRecordedOn(today).stream().distinct().sorted().toList(),
                 weighingService.getWeighableWorkers(""));
@@ -98,7 +108,8 @@ public class MobileSetupService {
                 employee.getFullName(),
                 idOf(employee.getDefaultEstate()),
                 idOf(employee.getHomeEstate()),
-                employee.getDefaultCollectionPoint() == null ? null : employee.getDefaultCollectionPoint().getCpCode(),
+                employee.getDefaultDivisionCode(),
+                employee.getDefaultFieldCode(),
                 employee.getEmployeeCategory());
     }
 

@@ -13,7 +13,8 @@ public record AttendanceSnapshot(
         LocalDate attendanceDate,
         String estateId,
         String workType,
-        String cpCode,
+        String divisionCode,
+        String fieldCode,
         AttendanceCategory attendanceCategory
 ) {
     public static AttendanceSnapshot of(Attendance attendance) {
@@ -21,8 +22,9 @@ public record AttendanceSnapshot(
                 attendance.getEmployee().getEmployeeCode(),
                 attendance.getAttendanceDate(),
                 attendance.getEstateId(),
-                attendance.getWorkType().getWorkType(),
-                attendance.getCollectionPoint().getCpCode(),
+                attendance.getWorkTypeCode(),
+                attendance.getDivisionCode(),
+                attendance.getFieldCode(),
                 attendance.getAttendanceCategory());
     }
 }

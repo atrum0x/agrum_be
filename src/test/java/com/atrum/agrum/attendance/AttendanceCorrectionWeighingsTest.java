@@ -3,9 +3,10 @@ package com.atrum.agrum.attendance;
 import com.atrum.agrum.attendance.AttendanceSiteValidator.AttendanceSite;
 import com.atrum.agrum.attendance.dto.CorrectAttendanceRequest;
 import com.atrum.agrum.attendance.dto.DeleteAttendanceRequest;
-import com.atrum.agrum.collectionPoint.CollectionPoint;
+import com.atrum.agrum.division.Division;
 import com.atrum.agrum.employee.Employee;
 import com.atrum.agrum.estate.Estate;
+import com.atrum.agrum.field.Field;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.UserService;
 import com.atrum.agrum.weight.WeightRecordRepository;
@@ -60,10 +61,10 @@ class AttendanceCorrectionWeighingsTest {
                 siteValidator, weightRecordRepository, userService, JsonMapper.builder().build());
 
         Estate s01 = estate("S01");
-        CollectionPoint cp1 = collectionPoint("CP1");
-        plucking = new AttendanceSite(s01, workType("PLUCKING", true), cp1);
-        pruning = new AttendanceSite(s01, workType("PRUNING", false), cp1);
-        pluckingAtS02 = new AttendanceSite(estate("S02"), workType("PLUCKING2", true), collectionPoint("CP9"));
+        Field cp1 = field("CP1", D1);
+        plucking = new AttendanceSite(s01, workType("PLUCKING", true), D1, cp1);
+        pruning = new AttendanceSite(s01, workType("PRUNING", false), D1, cp1);
+        pluckingAtS02 = new AttendanceSite(estate("S02"), workType("PLUCKING2", true), D9, field("CP9", D9));
 
         Employee employee = new Employee();
         employee.setEmployeeCode("E001");
@@ -76,7 +77,8 @@ class AttendanceCorrectionWeighingsTest {
         attendance.setEstateId("S01");
         attendance.setEstate(s01);
         attendance.setWorkType(plucking.workType());
-        attendance.setCollectionPoint(cp1);
+        attendance.setDivision(D1);
+        attendance.setField(cp1);
         attendance.setAttendanceCategory(AttendanceCategory.REGULAR);
         attendance.setRecordedBy(recorder);
         attendance.setRowVersion(0);
@@ -86,9 +88,9 @@ class AttendanceCorrectionWeighingsTest {
         when(userService.getCurrentUser()).thenReturn(admin);
         when(attendanceRepository.findVisibleById(attendance.getAttendanceId())).thenReturn(Optional.of(attendance));
         when(attendanceCorrectionRepository.save(any())).thenAnswer(call -> call.getArgument(0));
-        when(siteValidator.resolve("S01", "PLUCKING", "CP1")).thenReturn(plucking);
-        when(siteValidator.resolve("S01", "PRUNING", "CP1")).thenReturn(pruning);
-        when(siteValidator.resolve("S02", "PLUCKING2", "CP9")).thenReturn(pluckingAtS02);
+        when(siteValidator.resolve("S01", "PLUCKING", "D1", "CP1")).thenReturn(plucking);
+        when(siteValidator.resolve("S01", "PRUNING", "D1", "CP1")).thenReturn(pruning);
+        when(siteValidator.resolve("S02", "PLUCKING2", "D9", "CP9")).thenReturn(pluckingAtS02);
     }
 
     @Test
@@ -106,16 +108,16 @@ class AttendanceCorrectionWeighingsTest {
 
         service.correctAttendance(attendance.getAttendanceId(), correct("S01", "PRUNING", "CP1"));
 
-        verify(weightRecordRepository).copyFromAttendance(attendance.getAttendanceId(), "S01", "CP1", "PRUNING");
+        verify(weightRecordRepository).copyFromAttendance(attendance.getAttendanceId(), "S01", "D1", "CP1", "PRUNING");
     }
 
     @Test
-    void correction_copiesTheNewSiteCollectionPointAndWorkTypeToTheWeighings() {
+    void correction_copiesTheNewSiteFieldAndWorkTypeToTheWeighings() {
         when(weightRecordRepository.countActiveByAttendance(attendance.getAttendanceId())).thenReturn(2L);
 
         service.correctAttendance(attendance.getAttendanceId(), correct("S02", "PLUCKING2", "CP9"));
 
-        verify(weightRecordRepository).copyFromAttendance(attendance.getAttendanceId(), "S02", "CP9", "PLUCKING2");
+        verify(weightRecordRepository).copyFromAttendance(attendance.getAttendanceId(), "S02", "D9", "CP9", "PLUCKING2");
     }
 
     @Test
@@ -135,11 +137,13 @@ class AttendanceCorrectionWeighingsTest {
         service.deleteAttendance(attendance.getAttendanceId(), new DeleteAttendanceRequest("Wrong worker", 0));
 
         verify(attendanceRepository).delete(attendance);
-        verify(weightRecordRepository, never()).copyFromAttendance(any(), anyString(), anyString(), anyString());
+        verify(weightRecordRepository, never()).copyFromAttendance(any(), anyString(), anyString(), anyString(), anyString());
     }
 
-    private static CorrectAttendanceRequest correct(String estateId, String workType, String cpCode) {
-        return new CorrectAttendanceRequest(estateId, workType, cpCode, AttendanceCategory.REGULAR, "Wrong site", 0);
+    private static CorrectAttendanceRequest correct(String estateId, String workType, String fieldCode) {
+        String divisionCode = "S02".equals(estateId) ? "D9" : "D1";
+        return new CorrectAttendanceRequest(estateId, workType, divisionCode, fieldCode, AttendanceCategory.REGULAR,
+                "Wrong site", 0);
     }
 
     private static Estate estate(String id) {
@@ -151,14 +155,28 @@ class AttendanceCorrectionWeighingsTest {
 
     private static WorkType workType(String code, boolean weighingRequired) {
         WorkType workType = new WorkType();
-        workType.setWorkType(code);
+        workType.setWorkTypeCode(code);
+        workType.setName(code);
         workType.setWeighingRequired(weighingRequired);
         return workType;
     }
 
-    private static CollectionPoint collectionPoint(String code) {
-        CollectionPoint cp = new CollectionPoint();
-        cp.setCpCode(code);
-        return cp;
+    private static final Division D1 = division("S01", "D1");
+    private static final Division D9 = division("S02", "D9");
+
+    private static Division division(String estateId, String code) {
+        Division division = new Division();
+        division.setEstateId(estateId);
+        division.setDivisionCode(code);
+        division.setDescription("Division " + code);
+        return division;
+    }
+
+    private static Field field(String code, Division division) {
+        Field field = new Field();
+        field.setFieldCode(code);
+        field.setDivision(division);
+        field.setDescription("Field " + code);
+        return field;
     }
 }

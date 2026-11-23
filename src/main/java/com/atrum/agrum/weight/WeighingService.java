@@ -3,8 +3,8 @@ package com.atrum.agrum.weight;
 import com.atrum.agrum.attendance.Attendance;
 import com.atrum.agrum.attendance.AttendanceRepository;
 import com.atrum.agrum.estate.Estate;
-import com.atrum.agrum.face.FacePhotos;
 import com.atrum.agrum.exception.InsufficientPermissionException;
+import com.atrum.agrum.face.FacePhotos;
 import com.atrum.agrum.security.PermissionChecker;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.UserService;
@@ -80,9 +80,12 @@ public class WeighingService {
                             attendance.getAttendanceId(),
                             estate.getId(),
                             estate.getName(),
-                            attendance.getCollectionPoint().getCpCode(),
-                            attendance.getCollectionPoint().getName(),
-                            attendance.getWorkType().getWorkType(),
+                            attendance.getDivisionCode(),
+                            attendance.getDivision().getDescription(),
+                            attendance.getFieldCode(),
+                            attendance.getField().getDescription(),
+                            attendance.getWorkTypeCode(),
+                            attendance.getWorkType().getName(),
                             WeightCalculator.variance(estate.getVariancePercent()),
                             count == null ? 0 : count.getActiveCount().intValue(),
                             estate.getMaxDailyTransactions(),
@@ -175,7 +178,8 @@ public class WeighingService {
         // Read-only mapping; set so the returned DTO has the estate without a reload
         record.setEstate(estate);
         record.setWorkType(attendance.getWorkType());
-        record.setCollectionPoint(attendance.getCollectionPoint());
+        record.setDivision(attendance.getDivision());
+        record.setField(attendance.getField());
         record.setEntryType(request.entryType());
         record.setOriginalWeightKg(request.weightKg());
         record.setWeightKg(request.weightKg());

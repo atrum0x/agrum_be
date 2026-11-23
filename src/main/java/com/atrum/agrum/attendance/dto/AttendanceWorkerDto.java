@@ -10,7 +10,8 @@ public record AttendanceWorkerDto(
         String fullName,
         String defaultEstateId,
         String homeEstateId,
-        String defaultCpCode,
+        String defaultDivisionCode,
+        String defaultFieldCode,
         // Null when the employee's category text is not one of the attendance categories
         AttendanceCategory defaultCategory
 ) {}

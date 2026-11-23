@@ -36,7 +36,7 @@ public class DailyWeightSummaryService {
 
     /**
      * Replaces the date's rows: a worker whose only weighing was cancelled loses their row.
-     * Uses the sites' current Full / Half Day standards (D-05). Totals add the rounded
+     * Uses the sites' current Full / Half Day qty norms (D-05). Totals add the rounded
      * weight-after-variance of each counted weighing (CL-01).
      */
     @Transactional
@@ -59,8 +59,8 @@ public class DailyWeightSummaryService {
             throw new IllegalArgumentException(WeightMessages.DS_01_DATES);
         }
         List<DailyWeightSummaryDto> rows = dailyWeightSummaryRepository.search(dateFrom, dateTo,
-                        term(request.employeeCode()), term(request.estateId()),
-                        term(request.cpCode()), term(request.workType())).stream()
+                        term(request.employeeCode()), term(request.estateId()), term(request.divisionCode()),
+                        term(request.fieldCode()), term(request.workType())).stream()
                 .map(DailyWeightSummaryDto::from)
                 .toList();
         Instant lastCalculatedAt = jobRunStateRepository.findById(JOB_NAME)
@@ -77,7 +77,8 @@ public class DailyWeightSummaryService {
             throw new IllegalArgumentException("Your login is not linked to an employee.");
         }
         return search(new DailyWeightSummarySearchRequest(request.dateFrom(), request.dateTo(),
-                user.getEmployee().getEmployeeCode(), request.estateId(), request.cpCode(), request.workType()));
+                user.getEmployee().getEmployeeCode(), request.estateId(), request.divisionCode(), request.fieldCode(),
+                request.workType()));
     }
 
     private static DailyWeightSummary toSummary(LocalDate date, DailyWeightSummaryRepository.DailyTotal total,
@@ -88,8 +89,9 @@ public class DailyWeightSummaryService {
         summary.setSummaryDate(date);
         summary.setEmployeeCode(total.getEmployeeCode());
         summary.setEstateId(total.getEstateId());
-        summary.setCollectionPointCode(total.getCollectionPointCode());
-        summary.setWorkType(total.getWorkType());
+        summary.setDivisionCode(total.getDivisionCode());
+        summary.setFieldCode(total.getFieldCode());
+        summary.setWorkTypeCode(total.getWorkTypeCode());
         summary.setAttendanceCategory(AttendanceCategory.valueOf(total.getAttendanceCategory()));
         summary.setTransactionCount(total.getTransactionCount().intValue());
         summary.setDailyTotalKg(total.getDailyTotalKg());

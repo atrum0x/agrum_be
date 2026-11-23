@@ -42,7 +42,8 @@ public class WeightHistoryController {
             @RequestParam(required = false) String employeeCode,
             @RequestParam(required = false) String supervisor,
             @RequestParam(required = false) String estateId,
-            @RequestParam(required = false) String cpCode,
+            @RequestParam(required = false) String divisionCode,
+            @RequestParam(required = false) String fieldCode,
             @RequestParam(required = false) String workType,
             @RequestParam(required = false) AttendanceCategory attendanceCategory,
             @RequestParam(required = false) EntryType entryType,
@@ -50,7 +51,7 @@ public class WeightHistoryController {
             @RequestParam(required = false) ApprovalStatus approvalStatus,
             @PageableDefault(size = 50) Pageable pageable) {
         return ResponseEntity.ok(weightHistoryService.search(new WeightHistorySearchRequest(
-                dateFrom, dateTo, employeeCode, supervisor, estateId, cpCode, workType,
+                dateFrom, dateTo, employeeCode, supervisor, estateId, divisionCode, fieldCode, workType,
                 attendanceCategory, entryType, lineState, approvalStatus), pageable));
     }
 
@@ -62,7 +63,8 @@ public class WeightHistoryController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String supervisor,
             @RequestParam(required = false) String estateId,
-            @RequestParam(required = false) String cpCode,
+            @RequestParam(required = false) String divisionCode,
+            @RequestParam(required = false) String fieldCode,
             @RequestParam(required = false) String workType,
             @RequestParam(required = false) AttendanceCategory attendanceCategory,
             @RequestParam(required = false) EntryType entryType,
@@ -70,7 +72,7 @@ public class WeightHistoryController {
             @RequestParam(required = false) ApprovalStatus approvalStatus,
             @PageableDefault(size = 50) Pageable pageable) {
         return ResponseEntity.ok(weightHistoryService.searchMine(new WeightHistorySearchRequest(
-                dateFrom, dateTo, null, supervisor, estateId, cpCode, workType,
+                dateFrom, dateTo, null, supervisor, estateId, divisionCode, fieldCode, workType,
                 attendanceCategory, entryType, lineState, approvalStatus), pageable));
     }
 
@@ -95,14 +97,15 @@ public class WeightHistoryController {
             @RequestParam(required = false) String employeeCode,
             @RequestParam(required = false) String supervisor,
             @RequestParam(required = false) String estateId,
-            @RequestParam(required = false) String cpCode,
+            @RequestParam(required = false) String divisionCode,
+            @RequestParam(required = false) String fieldCode,
             @RequestParam(required = false) String workType,
             @RequestParam(required = false) AttendanceCategory attendanceCategory,
             @RequestParam(required = false) EntryType entryType,
             @RequestParam(required = false) LineState lineState,
             @RequestParam(required = false) ApprovalStatus approvalStatus) {
         return weightExportService.weightHistory(weightHistoryService.searchAll(new WeightHistorySearchRequest(
-                dateFrom, dateTo, employeeCode, supervisor, estateId, cpCode, workType,
+                dateFrom, dateTo, employeeCode, supervisor, estateId, divisionCode, fieldCode, workType,
                 attendanceCategory, entryType, lineState, approvalStatus))).toResponse();
     }
 
@@ -114,14 +117,15 @@ public class WeightHistoryController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate dateTo,
             @RequestParam(required = false) String supervisor,
             @RequestParam(required = false) String estateId,
-            @RequestParam(required = false) String cpCode,
+            @RequestParam(required = false) String divisionCode,
+            @RequestParam(required = false) String fieldCode,
             @RequestParam(required = false) String workType,
             @RequestParam(required = false) AttendanceCategory attendanceCategory,
             @RequestParam(required = false) EntryType entryType,
             @RequestParam(required = false) LineState lineState,
             @RequestParam(required = false) ApprovalStatus approvalStatus) {
         return weightExportService.weightHistory(weightHistoryService.searchAllMine(new WeightHistorySearchRequest(
-                dateFrom, dateTo, null, supervisor, estateId, cpCode, workType,
+                dateFrom, dateTo, null, supervisor, estateId, divisionCode, fieldCode, workType,
                 attendanceCategory, entryType, lineState, approvalStatus))).toResponse();
     }
 

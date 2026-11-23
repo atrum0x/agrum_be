@@ -45,7 +45,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
             JOIN FETCH a.employee e
             JOIN FETCH a.estate est
             JOIN FETCH a.workType wt
-            JOIN FETCH a.collectionPoint
+            JOIN FETCH a.division
+            JOIN FETCH a.field
             WHERE a.attendanceDate = :date
               AND wt.weighingRequired = TRUE
               AND est.active = TRUE
@@ -64,11 +65,13 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
             JOIN FETCH a.employee e
             JOIN FETCH a.estate
             JOIN FETCH a.workType
-            JOIN FETCH a.collectionPoint
+            JOIN FETCH a.division
+            JOIN FETCH a.field
             JOIN FETCH a.recordedBy u
             WHERE a.attendanceDate BETWEEN :dateFrom AND :dateTo
               AND (:estateId = '' OR a.estateId = :estateId)
-              AND (:cpCode = '' OR a.cpCode = :cpCode)
+              AND (:divisionCode = '' OR a.divisionCode = :divisionCode)
+              AND (:fieldCode = '' OR a.fieldCode = :fieldCode)
               AND (:workType = '' OR a.workTypeCode = :workType)
               AND (:recordedBy = '' OR u.username = :recordedBy)
               AND (
@@ -83,7 +86,8 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID> {
                             @Param("dateTo") LocalDate dateTo,
                             @Param("employee") String employee,
                             @Param("estateId") String estateId,
-                            @Param("cpCode") String cpCode,
+                            @Param("divisionCode") String divisionCode,
+                            @Param("fieldCode") String fieldCode,
                             @Param("workType") String workType,
                             @Param("recordedBy") String recordedBy);
 

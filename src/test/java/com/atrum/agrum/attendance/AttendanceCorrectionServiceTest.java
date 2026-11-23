@@ -4,9 +4,10 @@ import com.atrum.agrum.attendance.AttendanceSiteValidator.AttendanceSite;
 import com.atrum.agrum.attendance.dto.AttendanceDto;
 import com.atrum.agrum.attendance.dto.CorrectAttendanceRequest;
 import com.atrum.agrum.attendance.dto.DeleteAttendanceRequest;
-import com.atrum.agrum.collectionPoint.CollectionPoint;
+import com.atrum.agrum.division.Division;
 import com.atrum.agrum.employee.Employee;
 import com.atrum.agrum.estate.Estate;
+import com.atrum.agrum.field.Field;
 import com.atrum.agrum.user.AppUser;
 import com.atrum.agrum.user.UserService;
 import com.atrum.agrum.weight.WeightRecordRepository;
@@ -65,12 +66,14 @@ class AttendanceCorrectionServiceTest {
         Estate s01 = new Estate();
         s01.setId("S01");
         WorkType plucking = new WorkType();
-        plucking.setWorkType("PLUCKING");
+        plucking.setWorkTypeCode("PLUCKING");
+        plucking.setName("Plucking");
         plucking.setWeighingRequired(true);
-        CollectionPoint cp1 = collectionPoint("CP1");
-        when(siteValidator.resolve("S01", "PLUCKING", "CP1")).thenReturn(new AttendanceSite(s01, plucking, cp1));
-        when(siteValidator.resolve("S01", "PLUCKING", "CP2"))
-                .thenReturn(new AttendanceSite(s01, plucking, collectionPoint("CP2")));
+        Field cp1 = field("CP1");
+        when(siteValidator.resolve("S01", "PLUCKING", "D1", "CP1"))
+                .thenReturn(new AttendanceSite(s01, plucking, D1, cp1));
+        when(siteValidator.resolve("S01", "PLUCKING", "D1", "CP2"))
+                .thenReturn(new AttendanceSite(s01, plucking, D1, field("CP2")));
 
         Employee employee = new Employee();
         employee.setEmployeeCode("E001");
@@ -83,7 +86,8 @@ class AttendanceCorrectionServiceTest {
         attendance.setEstateId("S01");
         attendance.setEstate(s01);
         attendance.setWorkType(plucking);
-        attendance.setCollectionPoint(cp1);
+        attendance.setDivision(D1);
+        attendance.setField(cp1);
         attendance.setAttendanceCategory(AttendanceCategory.REGULAR);
         attendance.setRecordedBy(recorder);
         attendance.setRowVersion(3);
@@ -96,13 +100,13 @@ class AttendanceCorrectionServiceTest {
     }
 
     @Test
-    void TC41_changingTheCollectionPointWritesAHistoryRowWithOldAndNewValues() {
+    void TC41_changingTheFieldWritesAHistoryRowWithOldAndNewValues() {
         AttendanceDto dto = service.correctAttendance(attendance.getAttendanceId(),
                 request("CP2", AttendanceCategory.REGULAR, "  Worker moved to the south shed  ", 3));
 
-        assertThat(attendance.getCollectionPoint().getCpCode()).isEqualTo("CP2");
+        assertThat(attendance.getField().getFieldCode()).isEqualTo("CP2");
         verify(attendanceRepository).saveAndFlush(attendance);
-        verify(weightRecordRepository).copyFromAttendance(attendance.getAttendanceId(), "S01", "CP2", "PLUCKING");
+        verify(weightRecordRepository).copyFromAttendance(attendance.getAttendanceId(), "S01", "D1", "CP2", "PLUCKING");
 
         AttendanceCorrection history = savedCorrection();
         assertThat(history.getAction()).isEqualTo(CorrectionAction.CORRECT);
@@ -110,8 +114,8 @@ class AttendanceCorrectionServiceTest {
         assertThat(history.getEstateId()).isEqualTo("S01");
         assertThat(history.getReason()).isEqualTo("Worker moved to the south shed");
         assertThat(history.getCorrectedBy()).isSameAs(admin);
-        assertThat(history.getOldValues()).contains("\"cpCode\":\"CP1\"");
-        assertThat(history.getNewValues()).contains("\"cpCode\":\"CP2\"");
+        assertThat(history.getOldValues()).contains("\"fieldCode\":\"CP1\"");
+        assertThat(history.getNewValues()).contains("\"fieldCode\":\"CP2\"");
         // "Last Corrected By" in the list
         assertThat(dto).isNotNull();
     }
@@ -204,13 +208,25 @@ class AttendanceCorrectionServiceTest {
         return captor.getValue();
     }
 
-    private static CorrectAttendanceRequest request(String cpCode, AttendanceCategory category, String reason, Integer version) {
-        return new CorrectAttendanceRequest("S01", "PLUCKING", cpCode, category, reason, version);
+    private static CorrectAttendanceRequest request(String fieldCode, AttendanceCategory category, String reason, Integer version) {
+        return new CorrectAttendanceRequest("S01", "PLUCKING", "D1", fieldCode, category, reason, version);
     }
 
-    private static CollectionPoint collectionPoint(String code) {
-        CollectionPoint cp = new CollectionPoint();
-        cp.setCpCode(code);
-        return cp;
+    private static final Division D1 = division("D1");
+
+    private static Division division(String code) {
+        Division division = new Division();
+        division.setEstateId("S01");
+        division.setDivisionCode(code);
+        division.setDescription("Division " + code);
+        return division;
+    }
+
+    private static Field field(String code) {
+        Field field = new Field();
+        field.setFieldCode(code);
+        field.setDivision(D1);
+        field.setDescription("Field " + code);
+        return field;
     }
 }

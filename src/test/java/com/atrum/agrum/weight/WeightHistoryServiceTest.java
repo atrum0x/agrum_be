@@ -55,7 +55,7 @@ class WeightHistoryServiceTest {
         picker.setEmployee(employee);
         when(userService.getCurrentUser()).thenReturn(picker);
         when(weightRecordRepository.search(any(), any(), anyString(), anyString(), anyString(), anyString(),
-                anyString(), any(), any(), any(), any(), any())).thenReturn(Page.empty());
+                anyString(), anyString(), any(), any(), any(), any(), any())).thenReturn(Page.empty());
     }
 
     @Test
@@ -63,7 +63,7 @@ class WeightHistoryServiceTest {
         weightHistoryService.searchMine(search(null), PageRequest.of(0, 50));
 
         verify(weightRecordRepository).search(eq(TODAY), eq(TODAY), eq("E001"), eq(""), eq(""), eq(""),
-                eq(""), any(), any(), any(), any(), any());
+                eq(""), eq(""), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -71,7 +71,7 @@ class WeightHistoryServiceTest {
         weightHistoryService.searchMine(search("E002"), PageRequest.of(0, 50));
 
         verify(weightRecordRepository).search(any(), any(), eq("E001"), anyString(), anyString(), anyString(),
-                anyString(), any(), any(), any(), any(), any());
+                anyString(), anyString(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -85,7 +85,7 @@ class WeightHistoryServiceTest {
     @Test
     void WH01_dateFromAfterDateTo_isRejected() {
         WeightHistorySearchRequest request = new WeightHistorySearchRequest(TODAY.plusDays(1), TODAY,
-                null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null);
 
         assertThatThrownBy(() -> weightHistoryService.search(request, PageRequest.of(0, 50)))
                 .hasMessage(WeightMessages.WH_01_DATES);
@@ -93,6 +93,6 @@ class WeightHistoryServiceTest {
 
     private static WeightHistorySearchRequest search(String employeeCode) {
         return new WeightHistorySearchRequest(null, null, employeeCode,
-                null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null);
     }
 }

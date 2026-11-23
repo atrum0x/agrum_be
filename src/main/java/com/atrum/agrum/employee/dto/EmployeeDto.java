@@ -18,7 +18,8 @@ public record EmployeeDto(
         LocalDate startDate,
         LocalDate endDate,
         String defaultEstateId,
-        String defaultCollectionPointCode,
+        String defaultDivisionCode,
+        String defaultFieldCode,
         String homeEstateId,
         boolean hasUserAccount
 ) {

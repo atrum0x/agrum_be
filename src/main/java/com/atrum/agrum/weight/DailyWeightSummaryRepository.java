@@ -18,14 +18,15 @@ public interface DailyWeightSummaryRepository extends JpaRepository<DailyWeightS
 
     /**
      * One worker's totals for a day, as the 10 pm job needs them. Non-cancelled weighings
-     * of weighing-required work types only; site, collection point, work type and category
-     * come from the day's attendance; standards are the site's current ones (D-05).
+     * of weighing-required work types only; site, division, field, work type and category
+     * come from the day's attendance; qty norms are the site's current ones (D-05).
      */
     interface DailyTotal {
         String getEmployeeCode();
         String getEstateId();
-        String getCollectionPointCode();
-        String getWorkType();
+        String getDivisionCode();
+        String getFieldCode();
+        String getWorkTypeCode();
         String getAttendanceCategory();
         Long getTransactionCount();
         BigDecimal getDailyTotalKg();
@@ -37,8 +38,9 @@ public interface DailyWeightSummaryRepository extends JpaRepository<DailyWeightS
     @Query(value = """
             SELECT w.employee_code              AS "employeeCode",
                    a.estate_id                  AS "estateId",
-                   a.collection_point_code      AS "collectionPointCode",
-                   a.work_type                  AS "workType",
+                   a.division_code              AS "divisionCode",
+                   a.field_code                 AS "fieldCode",
+                   a.work_type_code             AS "workTypeCode",
                    a.attendance_category        AS "attendanceCategory",
                    COUNT(*)                     AS "transactionCount",
                    SUM(w.weight_after_variance) AS "dailyTotalKg",
@@ -46,12 +48,12 @@ public interface DailyWeightSummaryRepository extends JpaRepository<DailyWeightS
                    e.half_day_qty_kg            AS "halfDayQtyKg"
             FROM weight_records w
             JOIN attendance a ON a.attendance_id = w.attendance_id
-            JOIN work_types wt ON wt.estate_id = a.estate_id AND wt.work_type = a.work_type
+            JOIN work_types wt ON wt.estate_id = a.estate_id AND wt.work_type_code = a.work_type_code
             JOIN estates e ON e.id = a.estate_id
             WHERE w.weigh_date = :date
               AND w.line_state = 'RECORDED'
               AND wt.weighing_required = TRUE
-            GROUP BY w.employee_code, a.estate_id, a.collection_point_code, a.work_type,
+            GROUP BY w.employee_code, a.estate_id, a.division_code, a.field_code, a.work_type_code,
                      a.attendance_category, e.full_day_qty_kg, e.half_day_qty_kg
             """, nativeQuery = true)
     List<DailyTotal> calculateTotals(@Param("date") LocalDate date);
@@ -83,18 +85,23 @@ public interface DailyWeightSummaryRepository extends JpaRepository<DailyWeightS
             SELECT s FROM DailyWeightSummary s
             JOIN FETCH s.employee e
             JOIN FETCH s.estate
+            LEFT JOIN FETCH s.division
+            LEFT JOIN FETCH s.field
+            LEFT JOIN FETCH s.workType
             WHERE s.summaryDate BETWEEN :dateFrom AND :dateTo
               AND (:employeeCode = '' OR s.employeeCode = :employeeCode)
               AND (:estateId = '' OR s.estateId = :estateId)
-              AND (:cpCode = '' OR s.collectionPointCode = :cpCode)
-              AND (:workType = '' OR s.workType = :workType)
+              AND (:divisionCode = '' OR s.divisionCode = :divisionCode)
+              AND (:fieldCode = '' OR s.fieldCode = :fieldCode)
+              AND (:workType = '' OR s.workTypeCode = :workType)
             ORDER BY s.summaryDate, s.estateId, s.employeeCode
             """)
     List<DailyWeightSummary> search(@Param("dateFrom") LocalDate dateFrom,
                                     @Param("dateTo") LocalDate dateTo,
                                     @Param("employeeCode") String employeeCode,
                                     @Param("estateId") String estateId,
-                                    @Param("cpCode") String cpCode,
+                                    @Param("divisionCode") String divisionCode,
+                                    @Param("fieldCode") String fieldCode,
                                     @Param("workType") String workType);
 
     /** Filter suggestions: workers who appear in rows the user can see (JPQL, so the estate filter applies). */
